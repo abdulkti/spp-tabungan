@@ -331,24 +331,45 @@ app.get('/api/pembukuan', authMiddleware, async (req, res) => {
   try {
     const { tahun, kelas_id } = req.query;
     const t = tahun || String(new Date().getFullYear());
-    let sql = "SELECT s.*,k.nama as kelas_nama FROM siswa s JOIN kelas k ON k.id=s.kelas_id WHERE s.status='Aktif' AND s.tahun_ajaran=$1";
-    const params = [t];
-    if (kelas_id) { params.push(kelas_id); sql += ` AND s.kelas_id=$${params.length}`; }
+    let sql = `SELECT s.id,s.nis,s.nama,s.kelas_id,s.tahun_ajaran,s.tagihan_awal,s.spp_bulanan,
+      k.nama as kelas_nama,
+      COALESCE(tp.total,0) as bayar_tagihan,
+      tp.cicilan,
+      COALESCE(sp.total,0) as bayar_spp
+      FROM siswa s JOIN kelas k ON k.id=s.kelas_id
+      LEFT JOIN (
+        SELECT siswa_id, SUM(jumlah) as total,
+          json_agg(json_build_object('seri',seri,'jumlah',jumlah) ORDER BY seri) as cicilan
+        FROM tagihan_payments WHERE tahun_ajaran=${escapeLiteral(t)} GROUP BY siswa_id
+      ) tp ON tp.siswa_id=s.id
+      LEFT JOIN (
+        SELECT siswa_id, SUM(jumlah) as total FROM spp_payments WHERE tahun_ajaran=${escapeLiteral(t)} GROUP BY siswa_id
+      ) sp ON sp.siswa_id=s.id
+      WHERE s.status='Aktif' AND s.tahun_ajaran=${escapeLiteral(t)}`;
+    if (kelas_id) sql += ` AND s.kelas_id=${escapeLiteral(kelas_id)}`;
     sql += ' ORDER BY k.nama,s.nama';
-    const siswa = (await query(sql, params)).rows;
+    const rows = (await query(sql)).rows;
     const kelasMap = {};
-    for (const s of siswa) {
+    rows.forEach(s => {
       const kn = s.kelas_nama;
       if (!kelasMap[kn]) kelasMap[kn] = [];
-      const cic = await query("SELECT * FROM tagihan_payments WHERE siswa_id=$1 AND tahun_ajaran=$2 ORDER BY seri", [s.id, t]);
-      const bayarTag = cic.rows.reduce((a, c) => a + parseFloat(c.jumlah), 0);
-      const sppTot = await query("SELECT COALESCE(SUM(jumlah),0) as total FROM spp_payments WHERE siswa_id=$1 AND tahun_ajaran=$2", [s.id, t]);
-      const bayarSpp = parseFloat(sppTot.rows[0].total);
-      const sppKew = parseFloat(s.spp_bulanan) * 12;
+      const cicArr = s.cicilan || [];
       const cicCols = ['','','',''];
-      cic.rows.forEach((c, i) => { if (i < 4) cicCols[i] = parseFloat(c.jumlah); });
-      kelasMap[kn].push({ id: s.id, nis: s.nis, nama: s.nama, kelas: kn, tagihan_awal: parseFloat(s.tagihan_awal), cicilan: cicCols, bayar_tagihan: bayarTag, sisa_tagihan: parseFloat(s.tagihan_awal) - bayarTag, kewajiban_spp: sppKew, bayar_spp: bayarSpp, sisa_spp: sppKew - bayarSpp, total_kewajiban: parseFloat(s.tagihan_awal) + sppKew, total_dibayar: bayarTag + bayarSpp, grand_sisa: (parseFloat(s.tagihan_awal) + sppKew) - (bayarTag + bayarSpp) });
-    }
+      cicArr.forEach((c, i) => { if (i < 4) cicCols[i] = parseFloat(c.jumlah); });
+      const tagihan = parseFloat(s.tagihan_awal);
+      const bayarTag = parseFloat(s.bayar_tagihan);
+      const sppKew = parseFloat(s.spp_bulanan) * 12;
+      const bayarSpp = parseFloat(s.bayar_spp);
+      kelasMap[kn].push({
+        id: s.id, nis: s.nis, nama: s.nama, kelas: kn,
+        tagihan_awal: tagihan, cicilan: cicCols, bayar_tagihan: bayarTag,
+        sisa_tagihan: tagihan - bayarTag, kewajiban_spp: sppKew,
+        bayar_spp: bayarSpp, sisa_spp: sppKew - bayarSpp,
+        total_kewajiban: tagihan + sppKew,
+        total_dibayar: bayarTag + bayarSpp,
+        grand_sisa: (tagihan + sppKew) - (bayarTag + bayarSpp)
+      });
+    });
     res.json({ kelas: kelasMap, tahun: t });
   } catch (err) { errorHandler(res, err); }
 });
