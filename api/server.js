@@ -238,21 +238,25 @@ app.get('/api/spp', authMiddleware, async (req, res) => {
     const { tahun, bulan, kelas_id, search } = req.query;
     const t = tahun || String(new Date().getFullYear());
     const b = bulan || 'Juli';
-    let sql = "SELECT s.*,k.nama as kelas_nama FROM siswa s JOIN kelas k ON k.id=s.kelas_id WHERE s.status='Aktif' AND s.tahun_ajaran=$1";
-    const params = [t];
-    if (kelas_id) { params.push(kelas_id); sql += ` AND s.kelas_id=$${params.length}`; }
-    if (search) { params.push(`%${search}%`); sql += ` AND (s.nama ILIKE $${params.length} OR s.nis ILIKE $${params.length})`; }
+    let sql = `SELECT s.id,s.nis,s.nama,s.kelas_id,s.tahun_ajaran,s.spp_bulanan,
+      k.nama as kelas_nama,
+      CASE WHEN sp.id IS NOT NULL THEN TRUE ELSE FALSE END as lunas_bulan_ini,
+      COALESCE(st.total,0) as total_bayar
+      FROM siswa s JOIN kelas k ON k.id=s.kelas_id
+      LEFT JOIN spp_payments sp ON sp.siswa_id=s.id AND sp.tahun_ajaran=${escapeLiteral(t)} AND sp.bulan=${escapeLiteral(b)}
+      LEFT JOIN (SELECT siswa_id, SUM(jumlah) as total FROM spp_payments WHERE tahun_ajaran=${escapeLiteral(t)} GROUP BY siswa_id) st ON st.siswa_id=s.id
+      WHERE s.status='Aktif' AND s.tahun_ajaran=${escapeLiteral(t)}`;
+    if (kelas_id) sql += ` AND s.kelas_id=${escapeLiteral(kelas_id)}`;
+    if (search) sql += ` AND (s.nama ILIKE ${escapeLiteral('%'+search+'%')} OR s.nis ILIKE ${escapeLiteral('%'+search+'%')})`;
     sql += ' ORDER BY k.nama,s.nama';
-    const siswa = (await query(sql, params)).rows;
-    const result = [];
-    for (const s of siswa) {
-      const p = await query("SELECT id FROM spp_payments WHERE siswa_id=$1 AND tahun_ajaran=$2 AND bulan=$3", [s.id, t, b]);
-      const tot = await query("SELECT COALESCE(SUM(jumlah),0) as total FROM spp_payments WHERE siswa_id=$1 AND tahun_ajaran=$2", [s.id, t]);
-      const totalBayar = parseFloat(tot.rows[0].total);
-      const kewajiban = parseFloat(s.spp_bulanan) * 12;
-      result.push({ id: s.id, nis: s.nis, nama: s.nama, kelas_id: s.kelas_id, kelas_nama: s.kelas_nama, tahun_ajaran: s.tahun_ajaran, spp_bulanan: parseFloat(s.spp_bulanan), lunas_bulan_ini: p.rows.length > 0, total_bayar: totalBayar, kewajiban, sisa: kewajiban - totalBayar });
-    }
-    res.json(result);
+    const rows = (await query(sql)).rows;
+    res.json(rows.map(s => ({
+      id: s.id, nis: s.nis, nama: s.nama, kelas_id: s.kelas_id, kelas_nama: s.kelas_nama,
+      tahun_ajaran: s.tahun_ajaran, spp_bulanan: parseFloat(s.spp_bulanan),
+      lunas_bulan_ini: s.lunas_bulan_ini, total_bayar: parseFloat(s.total_bayar),
+      kewajiban: parseFloat(s.spp_bulanan) * 12,
+      sisa: parseFloat(s.spp_bulanan) * 12 - parseFloat(s.total_bayar)
+    })));
   } catch (err) { errorHandler(res, err); }
 });
 
@@ -279,20 +283,30 @@ app.get('/api/tagihan', authMiddleware, async (req, res) => {
   try {
     const { tahun, kelas_id, search } = req.query;
     const t = tahun || String(new Date().getFullYear());
-    let sql = "SELECT s.*,k.nama as kelas_nama FROM siswa s JOIN kelas k ON k.id=s.kelas_id WHERE s.status='Aktif' AND s.tahun_ajaran=$1";
-    const params = [t];
-    if (kelas_id) { params.push(kelas_id); sql += ` AND s.kelas_id=$${params.length}`; }
-    if (search) { params.push(`%${search}%`); sql += ` AND (s.nama ILIKE $${params.length} OR s.nis ILIKE $${params.length})`; }
+    let sql = `SELECT s.id,s.nis,s.nama,s.kelas_id,s.tahun_ajaran,s.tagihan_awal,s.spp_bulanan,
+      k.nama as kelas_nama,
+      COALESCE(tp.total_bayar,0) as total_bayar,
+      COALESCE(tp.jumlah_cicilan,0) as jumlah_cicilan,
+      tp.cicilan
+      FROM siswa s JOIN kelas k ON k.id=s.kelas_id
+      LEFT JOIN (
+        SELECT siswa_id, SUM(jumlah) as total_bayar, COUNT(*) as jumlah_cicilan,
+          json_agg(json_build_object('seri',seri,'jumlah',jumlah,'tanggal',tanggal) ORDER BY seri) as cicilan
+        FROM tagihan_payments WHERE tahun_ajaran=${escapeLiteral(t)} GROUP BY siswa_id
+      ) tp ON tp.siswa_id=s.id
+      WHERE s.status='Aktif' AND s.tahun_ajaran=${escapeLiteral(t)}`;
+    if (kelas_id) sql += ` AND s.kelas_id=${escapeLiteral(kelas_id)}`;
+    if (search) sql += ` AND (s.nama ILIKE ${escapeLiteral('%'+search+'%')} OR s.nis ILIKE ${escapeLiteral('%'+search+'%')})`;
     sql += ' ORDER BY k.nama,s.nama';
-    const siswa = (await query(sql, params)).rows;
-    const result = [];
-    for (const s of siswa) {
-      const cic = await query("SELECT * FROM tagihan_payments WHERE siswa_id=$1 AND tahun_ajaran=$2 ORDER BY seri", [s.id, t]);
-      const totalBayar = cic.rows.reduce((a, c) => a + parseFloat(c.jumlah), 0);
-      const sisa = parseFloat(s.tagihan_awal) - totalBayar;
-      result.push({ id: s.id, nis: s.nis, nama: s.nama, kelas_id: s.kelas_id, kelas_nama: s.kelas_nama, tagihan_awal: parseFloat(s.tagihan_awal), cicilan: cic.rows.map(c => ({ seri: c.seri, jumlah: parseFloat(c.jumlah), tanggal: c.tanggal })), total_bayar: totalBayar, sisa, lunas: sisa <= 0, jumlah_cicilan: cic.rows.length });
-    }
-    res.json(result);
+    const rows = (await query(sql)).rows;
+    res.json(rows.map(s => ({
+      id: s.id, nis: s.nis, nama: s.nama, kelas_id: s.kelas_id, kelas_nama: s.kelas_nama,
+      tagihan_awal: parseFloat(s.tagihan_awal),
+      cicilan: s.cicilan || [], total_bayar: parseFloat(s.total_bayar),
+      sisa: parseFloat(s.tagihan_awal) - parseFloat(s.total_bayar),
+      lunas: parseFloat(s.tagihan_awal) - parseFloat(s.total_bayar) <= 0,
+      jumlah_cicilan: parseInt(s.jumlah_cicilan)
+    })));
   } catch (err) { errorHandler(res, err); }
 });
 
