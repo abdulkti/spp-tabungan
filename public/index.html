@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>RA ALJAWAHIR - SPP & Tabungan Terpadu</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #f4f7f0 0%, #e6ede0 100%); min-height: 100vh; padding: 20px; }
+        .container { max-width: 1600px; margin: 0 auto; background: #fff; border-radius: 28px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.15); overflow: hidden; }
+        .header { background: linear-gradient(135deg, #1a4731 0%, #2d6e3e 50%, #3a8a4e 100%); color: white; padding: 22px 28px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+        .header h1 { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.3px; }
+        .header p { font-size: 0.75rem; opacity: 0.85; }
+        .header-right { display: flex; align-items: center; gap: 16px; }
+        .user-info { font-size: 0.78rem; opacity: 0.9; }
+        .btn-logout { padding: 6px 16px; border-radius: 30px; border: 1.5px solid rgba(255,255,255,0.3); background: transparent; color: white; cursor: pointer; font-size: 0.72rem; font-weight: 600; transition: all 0.2s; }
+        .btn-logout:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.6); }
+        .nav-tabs { display: flex; background: white; padding: 0 20px; gap: 2px; border-bottom: 1px solid #e2e8e0; flex-wrap: wrap; }
+        .tab { padding: 12px 18px; cursor: pointer; border: none; background: transparent; font-size: 0.78rem; font-weight: 600; color: #5a6e52; border-radius: 24px 24px 0 0; display: inline-flex; align-items: center; gap: 6px; transition: all 0.2s; }
+        .tab:hover { color: #1e4a2f; background: #eef3e8; }
+        .tab.active { color: #1e4a2f; background: #f0f5ea; border-bottom: 3px solid #3a7b44; }
+        .tab-content { display: none; padding: 20px 24px; animation: fadeIn 0.25s ease; }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+        .filter-card { background: #f8fbf6; border-radius: 20px; padding: 16px 20px; margin-bottom: 20px; border: 1px solid #e4ecd8; display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; }
+        .filter-group { display: flex; flex-direction: column; gap: 4px; }
+        .filter-group label { font-size: 0.65rem; font-weight: 700; color: #4a6741; text-transform: uppercase; letter-spacing: 0.3px; }
+        .filter-group select, .filter-group input { padding: 8px 14px; border: 1.5px solid #dce6d4; border-radius: 14px; font-size: 0.82rem; min-width: 140px; background: white; transition: border-color 0.2s; }
+        .filter-group select:focus, .filter-group input:focus { outline: none; border-color: #3a7b44; box-shadow: 0 0 0 3px rgba(58,123,68,0.1); }
+        .btn { padding: 8px 18px; border-radius: 30px; font-weight: 600; font-size: 0.75rem; border: none; cursor: pointer; transition: all 0.25s; display: inline-flex; align-items: center; gap: 5px; }
+        .btn:hover { transform: translateY(-2px); }
+        .btn-primary { background: linear-gradient(95deg, #2c5e3f, #4a8f54); color: white; }
+        .btn-primary:hover { box-shadow: 0 6px 16px rgba(44,94,63,0.3); }
+        .btn-success { background: linear-gradient(95deg, #1a7a5a, #289b72); color: white; }
+        .btn-success:hover { box-shadow: 0 6px 16px rgba(26,122,90,0.3); }
+        .btn-danger { background: linear-gradient(95deg, #c2412c, #d95a42); color: white; }
+        .btn-danger:hover { box-shadow: 0 6px 16px rgba(194,65,44,0.3); }
+        .btn-warning { background: linear-gradient(95deg, #d97a1e, #e8943a); color: white; }
+        .btn-warning:hover { box-shadow: 0 6px 16px rgba(217,122,30,0.3); }
+        .btn-info { background: linear-gradient(95deg, #3b82f6, #5a9af8); color: white; }
+        .btn-info:hover { box-shadow: 0 6px 16px rgba(59,130,246,0.3); }
+        .btn-sm { padding: 5px 12px; font-size: 0.65rem; }
+        .btn-purple { background: linear-gradient(135deg, #6366f1, #818cf8); color: white; }
+        .btn-purple:hover { box-shadow: 0 6px 16px rgba(99,102,241,0.3); }
+        .table-wrapper { overflow-x: auto; background: white; border-radius: 16px; border: 1px solid #e6ede0; margin-top: 8px; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.72rem; }
+        th { background: #f2f8ed; padding: 12px 10px; text-align: center; font-weight: 700; color: #1e4a2f; border-bottom: 2px solid #dce8d2; font-size: 0.67rem; text-transform: uppercase; letter-spacing: 0.2px; white-space: nowrap; }
+        td { padding: 10px 8px; text-align: center; border-bottom: 1px solid #edf3e5; vertical-align: middle; }
+        tr:hover td { background: #f8fbf5; }
+        .badge { display: inline-block; padding: 3px 10px; border-radius: 30px; font-size: 0.62rem; font-weight: 700; }
+        .badge-success { background: #d4f0e0; color: #1a6e4a; }
+        .badge-danger { background: #ffe0db; color: #bc3f2c; }
+        .badge-warning { background: #fee6cc; color: #b85c00; }
+        .badge-primary { background: #e0e7ff; color: #4338ca; }
+        .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 20px; }
+        .stat-card { background: #fff; border-radius: 20px; padding: 18px 20px; border: 1px solid #eaf0e4; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+        .stat-card h3 { font-size: 0.65rem; font-weight: 700; color: #6b8c5c; text-transform: uppercase; margin-bottom: 4px; letter-spacing: 0.3px; }
+        .stat-card .number { font-size: 1.4rem; font-weight: 800; color: #1e4a2f; }
+        .stat-card .small { font-size: 0.68rem; color: #7a9a6b; margin-top: 2px; }
+        .search-input { padding: 8px 18px; border: 1.5px solid #dce6d4; border-radius: 30px; width: 240px; font-size: 0.78rem; }
+        .search-input:focus { outline: none; border-color: #3a7b44; box-shadow: 0 0 0 3px rgba(58,123,68,0.1); }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); backdrop-filter: blur(6px); z-index: 1100; justify-content: center; align-items: center; }
+        .modal-content { background: white; padding: 24px 28px; border-radius: 28px; max-width: 500px; width: 92%; max-height: 85vh; overflow-y: auto; box-shadow: 0 25px 60px rgba(0,0,0,0.2); }
+        .modal-content h2 { font-size: 1.1rem; color: #1e4a2f; margin-bottom: 16px; font-weight: 700; }
+        .form-group { margin-bottom: 14px; }
+        .form-group label { font-weight: 700; font-size: 0.7rem; color: #1e4a2f; display: block; margin-bottom: 4px; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 9px 12px; border: 1.5px solid #dce6d4; border-radius: 14px; font-size: 0.82rem; }
+        .form-group input:focus, .form-group select:focus { outline: none; border-color: #3a7b44; box-shadow: 0 0 0 3px rgba(58,123,68,0.1); }
+        .total-row { background-color: #eef4e6; font-weight: bold; }
+        .total-row td { font-weight: bold; color: #1e4a2f; border-top: 2px solid #d0dcb6; }
+        .action-buttons { display: flex; gap: 4px; justify-content: center; flex-wrap: wrap; }
+        .members-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+        .member-card { background: #fff; border-radius: 18px; padding: 18px; border: 1px solid #eaf0e4; transition: all 0.2s; }
+        .member-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.06); }
+        .member-name { font-size: 0.9rem; font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
+        .member-amount { font-size: 1.3rem; font-weight: 800; color: #1a7a5a; margin-top: 8px; }
+        .transaction-list { display: flex; flex-direction: column; gap: 8px; }
+        .transaction-item { background: #f8fbf6; border-radius: 12px; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+        .transaction-amount { font-weight: 700; font-size: 0.9rem; }
+        .transaction-amount.plus { color: #1a7a5a; }
+        .transaction-amount.minus { color: #c2412c; }
+        .transaction-date { font-size: 0.65rem; color: #94a3b8; }
+        .pagination { display: flex; justify-content: center; gap: 6px; margin-top: 16px; }
+        .page-btn { width: 32px; height: 32px; border-radius: 10px; border: 1px solid #dce6d4; background: white; cursor: pointer; font-size: 0.75rem; }
+        .page-btn.active { background: #2c5e3f; color: white; border-color: #2c5e3f; }
+        .alert { padding: 10px 16px; border-radius: 12px; margin-bottom: 14px; font-size: 0.78rem; display: none; }
+        .alert-success { background: #d4f0e0; color: #1a6e4a; }
+        .alert-error { background: #ffe0db; color: #bc3f2c; }
+        .empty-state { text-align: center; padding: 40px 20px; color: #94a3b8; font-size: 0.85rem; }
+        .dropdown-container { position: relative; }
+        .dropdown-list { position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #dce6d4; border-radius: 14px; max-height: 200px; overflow-y: auto; z-index: 100; display: none; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        .dropdown-list.show { display: block; }
+        .dropdown-item { padding: 10px 14px; cursor: pointer; border-bottom: 1px solid #edf3e5; font-size: 0.8rem; }
+        .dropdown-item:hover { background: #f0f5ea; }
+        @media (max-width: 768px) {
+            body { padding: 10px; }
+            .header { padding: 16px; }
+            .header h1 { font-size: 1.1rem; }
+            .tab { padding: 10px 12px; font-size: 0.7rem; }
+            .tab-content { padding: 14px; }
+            .filter-card { flex-direction: column; align-items: stretch; }
+            .filter-group select, .filter-group input { min-width: unset; }
+            .search-input { width: 100%; }
+            .stat-grid { grid-template-columns: 1fr 1fr; }
+            .members-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <div><h1>RA ALJAWAHIR</h1><p>Sistem Pembukuan SPP & Tabungan Terpadu</p></div>
+        <div class="header-right"><span class="user-info" id="userInfo"></span><button class="btn-logout" onclick="logout()">Keluar</button></div>
+    </div>
+    <div class="nav-tabs">
+        <button class="tab active" data-tab="dashboard"><i class="fas fa-chart-line"></i> Dashboard</button>
+        <button class="tab" data-tab="spp"><i class="fas fa-money-bill-wave"></i> SPP</button>
+        <button class="tab" data-tab="tagihan"><i class="fas fa-file-invoice"></i> Tagihan Awal</button>
+        <button class="tab" data-tab="siswa"><i class="fas fa-user-graduate"></i> Siswa</button>
+        <button class="tab" data-tab="kelas"><i class="fas fa-school"></i> Kelas</button>
+        <button class="tab" data-tab="pembukuan"><i class="fas fa-book"></i> Pembukuan</button>
+        <button class="tab" style="border-left:2px solid #dce6d4;height:30px;margin:auto 4px;cursor:default;padding:0 2px;" disabled></button>
+        <button class="tab" data-tab="tabungan"><i class="fas fa-piggy-bank"></i> Tabungan</button>
+        <button class="tab" data-tab="nasabah"><i class="fas fa-users"></i> Nasabah</button>
+        <button class="tab" data-tab="laporan"><i class="fas fa-chart-bar"></i> Laporan</button>
+        <button class="tab" data-tab="backup"><i class="fas fa-database"></i> Backup</button>
+    </div>
+
+    <div id="tab-dashboard" class="tab-content active"><div class="stat-grid" id="dashStats"></div><div class="stat-grid" id="dashStats2"></div><div class="filter-card"><div class="filter-group"><label>Tahun Ajaran</label><select id="dashTahun" onchange="loadDashboard()"></select></div></div><div class="table-wrapper" id="dashTable"></div></div>
+
+    <div id="tab-spp" class="tab-content">
+        <div class="filter-card">
+            <div class="filter-group"><label>Tahun</label><select id="sppTahun" onchange="loadSPP()"></select></div>
+            <div class="filter-group"><label>Bulan</label><select id="sppBulan" onchange="loadSPP()"></select></div>
+            <div class="filter-group"><label>Kelas</label><select id="sppKelas" onchange="loadSPP()"><option value="">Semua</option></select></div>
+            <div class="filter-group"><label>Tgl Default</label><input type="date" id="sppTanggalDefault"></div>
+            <button class="btn btn-success" onclick="exportSPP()"><i class="fas fa-file-excel"></i> Export</button>
+        </div>
+        <input type="text" id="sppSearch" class="search-input" placeholder="Cari nama/NIS..." onkeyup="loadSPP()" style="margin-bottom:12px;">
+        <div class="table-wrapper" id="sppTable"></div>
+    </div>
+
+    <div id="tab-tagihan" class="tab-content">
+        <div class="filter-card">
+            <div class="filter-group"><label>Tahun</label><select id="tagTahun" onchange="loadTagihan()"></select></div>
+            <div class="filter-group"><label>Kelas</label><select id="tagKelas" onchange="loadTagihan()"><option value="">Semua</option></select></div>
+            <button class="btn btn-success" onclick="exportTagihan()"><i class="fas fa-file-excel"></i> Export</button>
+        </div>
+        <input type="text" id="tagSearch" class="search-input" placeholder="Cari nama/NIS..." onkeyup="loadTagihan()" style="margin-bottom:12px;">
+        <div class="table-wrapper" id="tagTable"></div>
+    </div>
+
+    <div id="tab-siswa" class="tab-content">
+        <div style="margin-bottom:12px;display:flex;gap:10px;flex-wrap:wrap;">
+            <button class="btn btn-primary" onclick="openSiswaModal()"><i class="fas fa-plus"></i> Tambah Siswa</button>
+            <button class="btn btn-danger" onclick="bulkDeleteSiswa()"><i class="fas fa-trash"></i> Hapus Terpilih</button>
+        </div>
+        <div style="display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap;">
+            <input type="text" id="siswaSearch" class="search-input" placeholder="Cari nama/NIS..." onkeyup="loadSiswa()">
+            <select id="siswaKelasFilter" onchange="loadSiswa()" style="padding:8px 16px;border-radius:30px;border:1.5px solid #dce6d4;"><option value="">Semua Kelas</option></select>
+            <label style="display:flex;align-items:center;gap:6px;font-size:0.75rem;cursor:pointer;"><input type="checkbox" id="selectAllSiswa" onchange="toggleSelectAll()"> Pilih Semua</label>
+        </div>
+        <div class="table-wrapper" id="siswaTable"></div>
+    </div>
+
+    <div id="tab-kelas" class="tab-content">
+        <div class="filter-card"><div class="filter-group"><label>Nama Kelas Baru</label><input type="text" id="newKelasName" placeholder="Contoh: A Sakura"></div><button class="btn btn-success" onclick="addKelas()"><i class="fas fa-plus"></i> Tambah</button></div>
+        <div class="table-wrapper" id="kelasTable"></div>
+    </div>
+
+    <div id="tab-pembukuan" class="tab-content">
+        <div class="filter-card">
+            <div class="filter-group"><label>Tahun</label><select id="bukuTahun" onchange="loadPembukuan()"></select></div>
+            <div class="filter-group"><label>Kelas</label><select id="bukuKelas" onchange="loadPembukuan()"><option value="">Semua</option></select></div>
+            <button class="btn btn-primary" onclick="exportPembukuan()"><i class="fas fa-file-excel"></i> Export Semua</button>
+        </div>
+        <div id="bukuContainer"></div>
+    </div>
+
+    <div id="tab-tabungan" class="tab-content">
+        <div class="filter-card">
+            <div class="filter-group" style="flex:1;min-width:200px;"><label>Cari Nasabah</label>
+                <div class="dropdown-container" id="tabungDropdown">
+                    <input type="text" id="tabungSearch" class="search-input" placeholder="Ketik nama..." autocomplete="off" onfocus="showTabungDropdown()" oninput="filterTabungDropdown()" style="width:100%;">
+                    <div id="tabungDropdownList" class="dropdown-list"></div>
+                </div>
+                <input type="hidden" id="tabungNasabahId">
+            </div>
+            <div class="filter-group"><label>Tanggal</label><input type="date" id="tabungTanggal"></div>
+            <div class="filter-group"><label>Jenis</label><select id="tabungJenis"><option value="setor">Setor</option><option value="tarik">Tarik</option></select></div>
+            <div class="filter-group"><label>Jumlah (Rp)</label><input type="text" id="tabungJumlah" placeholder="50.000" oninput="formatRupiah(this)"></div>
+            <div class="filter-group"><label>Keterangan</label><input type="text" id="tabungKet" placeholder="Opsional"></div>
+            <button class="btn btn-success" onclick="prosesTabungan()" style="align-self:flex-end;"><i class="fas fa-check"></i> Proses</button>
+        </div>
+        <div id="tabungSelectedInfo" style="display:none;background:#f8fbf6;padding:12px 16px;border-radius:14px;margin-bottom:12px;"><i class="fas fa-check-circle" style="color:#1a7a5a;"></i> <strong id="tabungSelectedName"></strong> — Saldo: <span id="tabungSelectedSaldo"></span></div>
+        <div class="table-wrapper" id="tabungTable"></div>
+        <div class="pagination" id="tabungPagination"></div>
+    </div>
+
+    <div id="tab-nasabah" class="tab-content">
+        <div class="card" style="background:#f8fbf6;border-radius:20px;padding:18px 20px;margin-bottom:16px;border:1px solid #e4ecd8;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;">
+                <div class="filter-group"><label>Role</label><select id="nasabahRole"><option value="siswa">Siswa</option><option value="guru">Guru</option></select></div>
+                <div class="filter-group"><label>Nama</label><input type="text" id="nasabahNama" placeholder="Nama lengkap"></div>
+                <div class="filter-group"><label>Kelas</label><input type="text" id="nasabahKelas" placeholder="Contoh: 10-A"></div>
+                <button class="btn btn-success" onclick="tambahNasabah()" style="align-self:flex-end;"><i class="fas fa-save"></i> Simpan</button>
+            </div>
+        </div>
+        <div style="display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap;">
+            <input type="text" id="nasabahSearch" class="search-input" placeholder="Cari nama..." onkeyup="loadNasabah()">
+            <select id="nasabahRoleFilter" onchange="loadNasabah()" style="padding:8px 16px;border-radius:30px;border:1.5px solid #dce6d4;"><option value="">Semua Role</option><option value="siswa">Siswa</option><option value="guru">Guru</option></select>
+            <select id="nasabahKelasFilter" onchange="loadNasabah()" style="padding:8px 16px;border-radius:30px;border:1.5px solid #dce6d4;"><option value="">Semua Kelas</option></select>
+        </div>
+        <div class="members-grid" id="nasabahGrid"></div>
+    </div>
+
+    <div id="tab-laporan" class="tab-content">
+        <div class="filter-card">
+            <div class="filter-group"><label>Role</label><select id="lapRole" onchange="loadLaporan()"><option value="">Semua</option><option value="siswa">Siswa</option><option value="guru">Guru</option></select></div>
+            <div class="filter-group"><label>Kelas</label><select id="lapKelas" onchange="loadLaporan()"><option value="">Semua</option></select></div>
+            <button class="btn btn-primary" onclick="exportLaporanExcel()"><i class="fas fa-file-excel"></i> Export Excel</button>
+        </div>
+        <div class="table-wrapper"><table><thead><tr><th>Nama</th><th>Role</th><th>Kelas</th><th>Saldo</th><th>Total Setor</th><th>Total Tarik</th></tr></thead><tbody id="lapTbody"></tbody></table></div>
+    </div>
+
+    <div id="tab-backup" class="tab-content">
+        <div class="stat-grid">
+            <div class="stat-card"><h3>Backup Data</h3><button class="btn btn-primary" onclick="backupData()" style="margin-top:8px;"><i class="fas fa-download"></i> Download Backup</button></div>
+            <div class="stat-card"><h3>Restore Data</h3><input type="file" id="restoreFile" accept=".json" style="margin-top:6px;font-size:0.75rem;"><button class="btn btn-success" onclick="restoreData()" style="margin-top:6px;"><i class="fas fa-upload"></i> Restore</button></div>
+        </div>
+    </div>
+</div>
+
+<div id="siswaModal" class="modal"><div class="modal-content">
+    <h2 id="siswaModalTitle">Tambah/Edit Siswa</h2>
+    <form id="siswaForm">
+        <input type="hidden" id="siswaId">
+        <div class="form-group"><label>NIS</label><input type="text" id="fNis" required></div>
+        <div class="form-group"><label>Nama</label><input type="text" id="fNama" required></div>
+        <div class="form-group"><label>Kelas</label><select id="fKelas" required></select></div>
+        <div class="form-group"><label>Tahun Ajaran</label><select id="fTahun" required></select></div>
+        <div class="form-group"><label>Tagihan Awal (Rp)</label><input type="text" id="fTagihan" value="1.624.000" oninput="formatRupiah(this)"></div>
+        <div class="form-group"><label>SPP/Bulan (Rp)</label><input type="text" id="fSpp" value="250.000" oninput="formatRupiah(this)"></div>
+        <div class="form-group"><label>Status</label><select id="fStatus"><option>Aktif</option><option>Nonaktif</option><option>Lulus</option></select></div>
+        <div style="display:flex;gap:10px;"><button type="submit" class="btn btn-primary">Simpan</button><button type="button" class="btn btn-danger" onclick="closeModal('siswaModal')">Batal</button></div>
+    </form>
+</div></div>
+
+<div id="sppModal" class="modal"><div class="modal-content">
+    <h2>Bayar SPP</h2>
+    <form id="sppForm">
+        <input type="hidden" id="sppPaySiswaId"><input type="hidden" id="sppPayTahun"><input type="hidden" id="sppPayBulan">
+        <div class="form-group"><label>Siswa</label><div id="sppPayInfo" style="font-weight:700;font-size:0.9rem;"></div></div>
+        <div class="form-group"><label>Jumlah (Rp)</label><input type="text" id="sppPayJumlah" oninput="formatRupiah(this)"></div>
+        <div class="form-group"><label>Tanggal</label><input type="date" id="sppPayTanggal" required></div>
+        <div class="form-group"><label>Keterangan</label><textarea id="sppPayKet" rows="2"></textarea></div>
+        <div style="display:flex;gap:10px;"><button type="submit" class="btn btn-success">Bayar</button><button type="button" class="btn btn-danger" onclick="closeModal('sppModal')">Batal</button></div>
+    </form>
+</div></div>
+
+<div id="tagModal" class="modal"><div class="modal-content">
+    <h2>Cicil Tagihan Awal</h2>
+    <form id="tagForm">
+        <input type="hidden" id="tagPaySiswaId"><input type="hidden" id="tagPayTahun">
+        <div class="form-group"><label>Siswa</label><div id="tagPayInfo" style="font-weight:700;font-size:0.9rem;"></div></div>
+        <div class="form-group"><label>Sisa Tagihan</label><div id="tagSisaInfo" style="color:#d97a1e;font-weight:700;"></div></div>
+        <div class="form-group"><label>Jumlah (Rp)</label><input type="text" id="tagPayJumlah" oninput="formatRupiah(this)"></div>
+        <div class="form-group"><label>Tanggal</label><input type="date" id="tagPayTanggal" required></div>
+        <div class="form-group"><label>Keterangan</label><textarea id="tagPayKet" rows="2"></textarea></div>
+        <div style="display:flex;gap:10px;"><button type="submit" class="btn btn-warning">Bayar</button><button type="button" class="btn btn-danger" onclick="closeModal('tagModal')">Batal</button></div>
+    </form>
+</div></div>
+
+<div id="nasabahModal" class="modal"><div class="modal-content">
+    <h2>Edit Nasabah</h2>
+    <input type="hidden" id="editNasabahId">
+    <div class="form-group"><label>Role</label><select id="editNasabahRole"><option value="siswa">Siswa</option><option value="guru">Guru</option></select></div>
+    <div class="form-group"><label>Nama</label><input type="text" id="editNasabahNama"></div>
+    <div class="form-group"><label>Kelas</label><input type="text" id="editNasabahKelas"></div>
+    <div class="form-group"><label>Saldo Saat Ini</label><input type="text" id="editNasabahSaldo" readonly style="background:#f5f5f5;"></div>
+    <div style="display:flex;gap:10px;"><button class="btn btn-primary" onclick="saveEditNasabah()">Simpan</button><button class="btn btn-danger" onclick="closeModal('nasabahModal')">Batal</button></div>
+</div></div>
+
+<script>
+const BULAN = ['Juli','Agustus','September','Oktober','November','Desember','Januari','Februari','Maret','April','Mei','Juni'];
+let siswaList = [], kelasList = [], nasabahList = [];
+let tabungPage = 1;
+
+function getToken() { return localStorage.getItem('token'); }
+function fmtRp(n) { return (n||0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
+function parseRp(s) { return parseInt((s||'').replace(/\./g,'').replace(/[^0-9]/g,'')) || 0; }
+function formatRupiah(el) { let v = el.value.replace(/\./g,'').replace(/[^0-9]/g,''); if(v) el.value = parseInt(v).toLocaleString('id-ID'); }
+
+async function apiFetch(path, opts = {}) {
+    opts.headers = opts.headers || {};
+    opts.headers['Content-Type'] = 'application/json';
+    const token = getToken();
+    if (token) opts.headers['Authorization'] = 'Bearer ' + token;
+    const res = await fetch(path, opts);
+    if (res.status === 401) { localStorage.clear(); window.location.href = '/login.html'; return null; }
+    const data = await res.json();
+    if (!res.ok) { throw new Error(data.error || 'Request failed'); }
+    return data;
+}
+
+function logout() { localStorage.clear(); window.location.href = '/login.html'; }
+
+async function checkAuth() {
+    const data = await apiFetch('/api/me');
+    if (data) {
+        document.getElementById('userInfo').textContent = '👤 ' + data.nama;
+        if (data.token) localStorage.setItem('token', data.token);
+    }
+}
+
+function showTab(tabId) {
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('tab-' + tabId).classList.add('active');
+    document.querySelector('.tab[data-tab="' + tabId + '"]').classList.add('active');
+    if (tabId === 'dashboard') loadDashboard();
+    if (tabId === 'spp') loadSPP();
+    if (tabId === 'tagihan') loadTagihan();
+    if (tabId === 'siswa') loadSiswa();
+    if (tabId === 'kelas') loadKelas();
+    if (tabId === 'pembukuan') loadPembukuan();
+    if (tabId === 'tabungan') { loadTabunganDropdown(); loadTabungan(); }
+    if (tabId === 'nasabah') loadNasabah();
+    if (tabId === 'laporan') loadLaporan();
+}
+document.querySelectorAll('.tab').forEach(btn => {
+    if (!btn.disabled) btn.addEventListener('click', () => showTab(btn.getAttribute('data-tab')));
+});
+
+function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+window.onclick = e => { if (e.target.classList.contains('modal')) e.target.style.display = 'none'; };
+
+function getTahunOptions(s) { const y = new Date().getFullYear(); let h=''; for(let i=y-3;i<=y+2;i++) h+=`<option value="${i}" ${i==s?'selected':''}>${i}/${i+1}</option>`; return h; }
+function getBulanOptions(s) { return BULAN.map(b => `<option value="${b}" ${b==s?'selected':''}>${b}</option>`).join(''); }
+
+// ─── DASHBOARD ───
+async function loadDashboard() {
+    const tahun = document.getElementById('dashTahun').value || new Date().getFullYear();
+    const d = await apiFetch('/api/dashboard?tahun=' + tahun);
+    if (!d) return;
+    document.getElementById('dashStats').innerHTML =
+        `<div class="stat-card"><h3>Siswa Aktif</h3><div class="number">${d.spp.siswa_aktif}</div></div>` +
+        `<div class="stat-card"><h3>Total Tabungan</h3><div class="number">Rp ${fmtRp(d.tabungan.total_saldo)}</div><div class="small">${d.tabungan.total_nasabah} nasabah</div></div>` +
+        `<div class="stat-card"><h3>Tagihan Awal</h3><div class="number">Rp ${fmtRp(d.spp.total_tagihan_awal)}</div><div class="small">Dibayar: Rp ${fmtRp(d.spp.bayar_tagihan_awal)}</div></div>` +
+        `<div class="stat-card"><h3>SPP Setahun</h3><div class="number">Rp ${fmtRp(d.spp.total_spp)}</div><div class="small">Dibayar: Rp ${fmtRp(d.spp.bayar_spp)}</div></div>`;
+    document.getElementById('dashStats2').innerHTML =
+        `<div class="stat-card"><h3>Nasabah</h3><div class="number">${d.tabungan.total_nasabah}</div><div class="small">${d.tabungan.siswa} siswa / ${d.tabungan.guru} guru</div></div>` +
+        `<div class="stat-card"><h3>Transaksi Bulan Ini</h3><div class="number">${d.tabungan.transaksi_bulan_ini}</div></div>` +
+        `<div class="stat-card"><h3>Top Tabungan</h3><div class="small">${(d.tabungan.top_nasabah||[]).map(n=>`<div>${n.nama}: Rp ${fmtRp(n.saldo)}</div>`).join('')||'Belum ada data'}</div></div>` +
+        `<div class="stat-card"><h3>Transaksi Terbaru</h3><div class="small">${(d.tabungan.transaksi_terbaru||[]).slice(0,3).map(t=>`<div>${t.nama}: ${t.jenis==='setor'?'+':'-'} Rp ${fmtRp(t.jumlah)}</div>`).join('')||'Belum ada'}</div></div>`;
+    let h = '<table><thead><tr><th>Kelas</th><th>Siswa</th><th>Tagihan Awal</th><th>SPP/Thn</th><th>Total</th></tr></thead><tbody>';
+    (d.spp.per_kelas||[]).forEach(k => { h += `<tr><td><strong>${k.nama}</strong></td><td>${k.jml}</td><td>Rp ${fmtRp(k.total_tag)}</td><td>Rp ${fmtRp(k.total_spp)}</td><td><strong>Rp ${fmtRp(parseFloat(k.total_tag)+parseFloat(k.total_spp))}</strong></td></tr>`; });
+    h += '</tbody></table>';
+    document.getElementById('dashTable').innerHTML = h;
+}
+
+// ─── SPP ───
+async function loadSPP() {
+    const tahun = document.getElementById('sppTahun').value, bulan = document.getElementById('sppBulan').value;
+    const kelasId = document.getElementById('sppKelas').value, search = document.getElementById('sppSearch').value;
+    let url = `/api/spp?tahun=${tahun}&bulan=${bulan}`;
+    if (kelasId) url += `&kelas_id=${kelasId}`;
+    if (search) url += `&search=${encodeURIComponent(search)}`;
+    const data = await apiFetch(url);
+    if (!data) return;
+    let h = '<table><thead><tr><th>No</th><th>NIS</th><th>Nama</th><th>Kelas</th><th>SPP/Bln</th><th>Status</th><th>Total Bayar</th><th>Sisa</th><th>Aksi</th></tr></thead><tbody>';
+    data.forEach((s,i) => { h += `<tr><td>${i+1}</td><td>${s.nis}</td><td style="text-align:left">${s.nama}</td><td>${s.kelas_nama}</td><td>Rp ${fmtRp(s.spp_bulanan)}</td><td>${s.lunas_bulan_ini ? '<span class="badge badge-success">LUNAS</span>' : '<span class="badge badge-danger">BELUM</span>'}</td><td>Rp ${fmtRp(s.total_bayar)}</td><td>Rp ${fmtRp(s.sisa)}</td><td class="action-buttons">${s.lunas_bulan_ini ? `<button class="btn btn-warning btn-sm" onclick="cancelSPP('${s.id}','${tahun}','${bulan}')">Batal</button>` : `<button class="btn btn-success btn-sm" onclick="openBayarSPP('${s.id}','${tahun}','${bulan}','${s.nama}','${s.spp_bulanan}')">Bayar</button>`}</td></tr>`; });
+    h += '</tbody></table>';
+    document.getElementById('sppTable').innerHTML = h || '<div class="empty-state">Tidak ada data</div>';
+}
+function openBayarSPP(id, tahun, bulan, nama, jumlah) {
+    document.getElementById('sppPaySiswaId').value = id;
+    document.getElementById('sppPayTahun').value = tahun;
+    document.getElementById('sppPayBulan').value = bulan;
+    document.getElementById('sppPayInfo').textContent = nama + ' - ' + bulan + ' ' + tahun;
+    document.getElementById('sppPayJumlah').value = fmtRp(jumlah);
+    document.getElementById('sppPayTanggal').value = document.getElementById('sppTanggalDefault').value || new Date().toISOString().slice(0,10);
+    document.getElementById('sppPayKet').value = 'SPP ' + bulan + ' ' + tahun;
+    document.getElementById('sppModal').style.display = 'flex';
+}
+document.getElementById('sppForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    try {
+        await apiFetch('/api/spp', { method:'POST', body:JSON.stringify({
+            siswa_id: document.getElementById('sppPaySiswaId').value, tahun_ajaran: document.getElementById('sppPayTahun').value,
+            bulan: document.getElementById('sppPayBulan').value, jumlah: parseRp(document.getElementById('sppPayJumlah').value),
+            tanggal: document.getElementById('sppPayTanggal').value, keterangan: document.getElementById('sppPayKet').value
+        })});
+        alert('SPP berhasil dibayar!'); closeModal('sppModal'); loadSPP(); loadDashboard();
+    } catch(e) { alert(e.message); }
+});
+async function cancelSPP(id, tahun, bulan) {
+    if (!confirm('Batalkan SPP ' + bulan + ' ' + tahun + '?')) return;
+    await apiFetch('/api/spp/cancel', { method:'POST', body:JSON.stringify({siswa_id:id, tahun_ajaran:tahun, bulan:bulan}) });
+    loadSPP(); loadDashboard();
+}
+
+// ─── TAGIHAN ───
+async function loadTagihan() {
+    const tahun = document.getElementById('tagTahun').value, kelasId = document.getElementById('tagKelas').value, search = document.getElementById('tagSearch').value;
+    let url = `/api/tagihan?tahun=${tahun}`;
+    if (kelasId) url += `&kelas_id=${kelasId}`;
+    if (search) url += `&search=${encodeURIComponent(search)}`;
+    const data = await apiFetch(url);
+    if (!data) return;
+    let h = '<table><thead><tr><th>No</th><th>NIS</th><th>Nama</th><th>Kelas</th><th>Tagihan</th><th>Cicilan</th><th>Total Bayar</th><th>Sisa</th><th>Status</th><th>Aksi</th></tr></thead><tbody>';
+    let gTag=0,gBayar=0;
+    data.forEach((s,i) => { gTag+=s.tagihan_awal; gBayar+=s.total_bayar;
+        const cic = (s.cicilan||[]).map(c => `Cic-${c.seri}: Rp ${fmtRp(c.jumlah)}`).join('<br>') || '-';
+        h += `<tr><td>${i+1}</td><td>${s.nis}</td><td style="text-align:left">${s.nama}</td><td>${s.kelas_nama}</td><td>Rp ${fmtRp(s.tagihan_awal)}</td><td style="font-size:0.65rem;">${cic}</td><td><strong>Rp ${fmtRp(s.total_bayar)}</strong></td><td>Rp ${fmtRp(s.sisa)}</td><td>${s.lunas ? '<span class="badge badge-success">LUNAS</span>' : '<span class="badge badge-warning">BELUM</span>'}</td><td>${s.lunas ? '<span style="font-size:0.7rem;color:#6b8c5c;">Selesai</span>' : `<button class="btn btn-warning btn-sm" onclick="openBayarTagihan('${s.id}','${tahun}','${s.nama}','${s.tagihan_awal}','${s.total_bayar}','${s.jumlah_cicilan}')">Cicil ${parseInt(s.jumlah_cicilan)+1}</button>`}</td></tr>`;
+    });
+    h += `<tr class="total-row"><td colspan="4"><strong>TOTAL</strong></td><td><strong>Rp ${fmtRp(gTag)}</strong></td><td></td><td><strong>Rp ${fmtRp(gBayar)}</strong></td><td><strong>Rp ${fmtRp(gTag-gBayar)}</strong></td><td colspan="2"></td></tr></tbody></table>`;
+    document.getElementById('tagTable').innerHTML = h || '<div class="empty-state">Tidak ada data</div>';
+}
+function openBayarTagihan(id, tahun, nama, tagihan, bayar, cicilan) {
+    document.getElementById('tagPaySiswaId').value = id; document.getElementById('tagPayTahun').value = tahun;
+    document.getElementById('tagPayInfo').textContent = nama; const sisa = tagihan - bayar;
+    document.getElementById('tagSisaInfo').textContent = 'Rp ' + fmtRp(sisa) + ' (Cicilan ke-' + (parseInt(cicilan)+1) + ')';
+    document.getElementById('tagPayTanggal').value = new Date().toISOString().slice(0,10);
+    document.getElementById('tagPayKet').value = 'Cicilan ' + (parseInt(cicilan)+1) + ' - Tagihan Awal ' + tahun;
+    document.getElementById('tagPayJumlah').value = ''; document.getElementById('tagModal').style.display = 'flex';
+}
+document.getElementById('tagForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    try {
+        await apiFetch('/api/tagihan', { method:'POST', body:JSON.stringify({
+            siswa_id: document.getElementById('tagPaySiswaId').value, tahun_ajaran: document.getElementById('tagPayTahun').value,
+            jumlah: parseRp(document.getElementById('tagPayJumlah').value), tanggal: document.getElementById('tagPayTanggal').value,
+            keterangan: document.getElementById('tagPayKet').value
+        })});
+        alert('Cicilan berhasil!'); closeModal('tagModal'); loadTagihan(); loadDashboard();
+    } catch(e) { alert(e.message); }
+});
+
+// ─── SISWA ───
+async function loadSiswa() {
+    const search = document.getElementById('siswaSearch').value, kelasId = document.getElementById('siswaKelasFilter').value;
+    let url = '/api/siswa?tahun=' + (document.getElementById('dashTahun').value || new Date().getFullYear());
+    if (search) url += '&search=' + encodeURIComponent(search);
+    if (kelasId) url += '&kelas_id=' + kelasId;
+    const data = await apiFetch(url);
+    if (!data) return;
+    siswaList = data;
+    let h = '<table><thead><tr><th><input type="checkbox" onchange="toggleSelectAll()"></th><th>NIS</th><th>Nama</th><th>Kelas</th><th>Tahun</th><th>Tagihan</th><th>SPP/Bln</th><th>Status</th><th>Aksi</th></tr></thead><tbody>';
+    data.forEach(s => { h += `<tr><td><input type="checkbox" class="siswa-check" value="${s.id}"></td><td>${s.nis}</td><td style="text-align:left">${s.nama}</td><td>${s.kelas_nama}</td><td>${s.tahun_ajaran}/${parseInt(s.tahun_ajaran)+1}</td><td>Rp ${fmtRp(s.tagihan_awal)}</td><td>Rp ${fmtRp(s.spp_bulanan)}</td><td>${s.status}</td><td class="action-buttons"><button class="btn btn-info btn-sm" onclick="editSiswa('${s.id}')">Edit</button><button class="btn btn-danger btn-sm" onclick="hapusSiswa('${s.id}')">Hapus</button></td></tr>`; });
+    h += '</tbody></table>';
+    document.getElementById('siswaTable').innerHTML = h || '<div class="empty-state">Tidak ada siswa</div>';
+}
+function toggleSelectAll() { document.querySelectorAll('.siswa-check').forEach(c => c.checked = document.getElementById('selectAllSiswa').checked); }
+function openSiswaModal(data) {
+    document.getElementById('siswaId').value = data?.id||'';
+    document.getElementById('fNis').value = data?.nis||''; document.getElementById('fNama').value = data?.nama||'';
+    document.getElementById('fKelas').value = data?.kelas_id||(kelasList[0]?.id||'');
+    document.getElementById('fTahun').value = data?.tahun_ajaran||new Date().getFullYear();
+    document.getElementById('fTagihan').value = fmtRp(data?.tagihan_awal||1624000);
+    document.getElementById('fSpp').value = fmtRp(data?.spp_bulanan||250000);
+    document.getElementById('fStatus').value = data?.status||'Aktif';
+    document.getElementById('siswaModalTitle').textContent = data ? 'Edit Siswa' : 'Tambah Siswa';
+    document.getElementById('siswaModal').style.display = 'flex';
+}
+document.getElementById('siswaForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    try {
+        await apiFetch('/api/siswa', { method:'POST', body:JSON.stringify({
+            id: document.getElementById('siswaId').value||null, nis: document.getElementById('fNis').value, nama: document.getElementById('fNama').value,
+            kelas_id: document.getElementById('fKelas').value, tahun_ajaran: document.getElementById('fTahun').value,
+            tagihan_awal: parseRp(document.getElementById('fTagihan').value), spp_bulanan: parseRp(document.getElementById('fSpp').value),
+            status: document.getElementById('fStatus').value
+        })});
+        closeModal('siswaModal'); loadSiswa(); loadDashboard();
+    } catch(e) { alert(e.message); }
+});
+function editSiswa(id) { const s = siswaList.find(x => x.id == id); if (s) openSiswaModal(s); }
+async function hapusSiswa(id) { if (!confirm('Hapus siswa?')) return; await apiFetch('/api/siswa?id='+id, { method:'DELETE' }); loadSiswa(); }
+async function bulkDeleteSiswa() {
+    const ids = [...document.querySelectorAll('.siswa-check:checked')].map(c => c.value);
+    if (!ids.length) return alert('Pilih siswa dulu');
+    if (!confirm('Hapus '+ids.length+' siswa?')) return;
+    for (const id of ids) await apiFetch('/api/siswa?id='+id, { method:'DELETE' });
+    loadSiswa();
+}
+
+// ─── KELAS ───
+async function loadKelas() {
+    const data = await apiFetch('/api/kelas');
+    if (!data) return;
+    kelasList = data;
+    document.querySelectorAll('[id$="KelasFilter"], #fKelas').forEach(el => {
+        if (el.tagName==='SELECT' && el.id !== 'fKelas') {
+            el.innerHTML = '<option value="">Semua Kelas</option>' + data.map(k => `<option value="${k.id}">${k.nama}</option>`).join('');
+        }
+    });
+    document.getElementById('fKelas').innerHTML = data.map(k => `<option value="${k.id}">${k.nama}</option>`).join('');
+    let h = '<table><thead><tr><th>Kelas</th><th>Jumlah Siswa</th><th>Aksi</th></tr></thead><tbody>';
+    data.forEach(k => { h += `<tr><td><strong>${k.nama}</strong></td><td>${k.jumlah_siswa} siswa</td><td class="action-buttons"><button class="btn btn-danger btn-sm" onclick="hapusKelas(${k.id})">Hapus</button></td></tr>`; });
+    h += '</tbody></table>';
+    document.getElementById('kelasTable').innerHTML = h;
+}
+async function addKelas() {
+    const nama = document.getElementById('newKelasName').value.trim();
+    if (!nama) return alert('Nama kelas wajib diisi');
+    await apiFetch('/api/kelas', { method:'POST', body:JSON.stringify({nama}) });
+    document.getElementById('newKelasName').value = ''; loadKelas();
+}
+async function hapusKelas(id) { if (!confirm('Hapus kelas?')) return; try { await apiFetch('/api/kelas?id='+id, { method:'DELETE' }); loadKelas(); } catch(e) { alert(e.message); } }
+
+// ─── PEMBUKUAN ───
+async function loadPembukuan() {
+    const tahun = document.getElementById('bukuTahun').value, kelasId = document.getElementById('bukuKelas').value;
+    let url = `/api/pembukuan?tahun=${tahun}`;
+    if (kelasId) url += '&kelas_id='+kelasId;
+    const data = await apiFetch(url);
+    if (!data) return;
+    const km = data.kelas||{};
+    let html = ''; let gTag=0,gBayarTag=0,gSpp=0,gBayarSpp=0;
+    Object.keys(km).forEach(kelas => {
+        const siswa = km[kelas];
+        html += `<div style="margin-bottom:20px;"><div style="font-weight:800;color:#1e4a2f;padding:8px 0;">Kelas: ${kelas} (${siswa.length} siswa)</div>`;
+        html += '<table><thead><tr><th>No</th><th>NIS</th><th>Nama</th><th>Tagihan</th><th>Bayar Tag</th><th>Sisa Tag</th><th>Kew SPP</th><th>Bayar SPP</th><th>Sisa SPP</th><th>Total Kew</th><th>Total Bayar</th><th>Grand Sisa</th></tr></thead><tbody>';
+        let kTag=0,kBayarTag=0,kSpp=0,kBayarSpp=0;
+        siswa.forEach((s,i) => { kTag+=parseFloat(s.tagihan_awal); kBayarTag+=parseFloat(s.bayar_tagihan); kSpp+=parseFloat(s.kewajiban_spp); kBayarSpp+=parseFloat(s.bayar_spp);
+            html += `<tr><td>${i+1}</td><td>${s.nis}</td><td style="text-align:left">${s.nama}</td><td>Rp ${fmtRp(s.tagihan_awal)}</td><td>Rp ${fmtRp(s.bayar_tagihan)}</td><td>Rp ${fmtRp(s.sisa_tagihan)}</td><td>Rp ${fmtRp(s.kewajiban_spp)}</td><td>Rp ${fmtRp(s.bayar_spp)}</td><td>Rp ${fmtRp(s.sisa_spp)}</td><td><strong>Rp ${fmtRp(s.total_kewajiban)}</strong></td><td><strong>Rp ${fmtRp(s.total_dibayar)}</strong></td><td><strong>Rp ${fmtRp(s.grand_sisa)}</strong></td></tr>`;
+        });
+        html += `<tr class="total-row"><td colspan="3"><strong>SUBTOTAL</strong></td><td>Rp ${fmtRp(kTag)}</td><td>Rp ${fmtRp(kBayarTag)}</td><td>Rp ${fmtRp(kTag-kBayarTag)}</td><td>Rp ${fmtRp(kSpp)}</td><td>Rp ${fmtRp(kBayarSpp)}</td><td>Rp ${fmtRp(kSpp-kBayarSpp)}</td><td>Rp ${fmtRp(kTag+kSpp)}</td><td>Rp ${fmtRp(kBayarTag+kBayarSpp)}</td><td>Rp ${fmtRp((kTag+kSpp)-(kBayarTag+kBayarSpp))}</td></tr></tbody></table></div>`;
+        gTag+=kTag; gBayarTag+=kBayarTag; gSpp+=kSpp; gBayarSpp+=kBayarSpp;
+    });
+    html += `<div style="margin-top:12px;"><table><thead><tr><th colspan="12" style="font-size:0.85rem;">GRAND TOTAL</th></tr></thead><tbody><tr class="total-row"><td colspan="3"><strong>GRAND TOTAL</strong></td><td>Rp ${fmtRp(gTag)}</td><td>Rp ${fmtRp(gBayarTag)}</td><td>Rp ${fmtRp(gTag-gBayarTag)}</td><td>Rp ${fmtRp(gSpp)}</td><td>Rp ${fmtRp(gBayarSpp)}</td><td>Rp ${fmtRp(gSpp-gBayarSpp)}</td><td>Rp ${fmtRp(gTag+gSpp)}</td><td>Rp ${fmtRp(gBayarTag+gBayarSpp)}</td><td>Rp ${fmtRp((gTag+gSpp)-(gBayarTag+gBayarSpp))}</td></tr></tbody></table></div>`;
+    document.getElementById('bukuContainer').innerHTML = html || '<div class="empty-state">Tidak ada data</div>';
+}
+
+// ─── TABUNGAN ───
+async function loadTabunganDropdown() { const d = await apiFetch('/api/nasabah'); if (d) nasabahList = d; }
+function showTabungDropdown() { document.getElementById('tabungDropdownList').classList.add('show'); filterTabungDropdown(); }
+function filterTabungDropdown() {
+    const q = (document.getElementById('tabungSearch').value||'').toLowerCase();
+    const list = document.getElementById('tabungDropdownList');
+    list.innerHTML = nasabahList.filter(n => n.nama.toLowerCase().includes(q)).map(n =>
+        `<div class="dropdown-item" onclick="pilihNasabahTabung('${n.id}','${n.nama.replace(/'/g,"\\'")}','${n.kelas||''}','${n.saldo||0}')"><strong>${n.nama}</strong> <span style="font-size:0.65rem;color:#94a3b8;">${n.kelas||n.role} · Rp ${fmtRp(n.saldo)}</span></div>`
+    ).join('') || '<div class="dropdown-item">Tidak ditemukan</div>';
+}
+document.addEventListener('click', function(e) { const c = document.getElementById('tabungDropdown'); if (c && !c.contains(e.target)) document.getElementById('tabungDropdownList').classList.remove('show'); });
+function pilihNasabahTabung(id, nama, kelas, saldo) {
+    document.getElementById('tabungNasabahId').value = id; document.getElementById('tabungSearch').value = nama;
+    document.getElementById('tabungSelectedName').innerHTML = nama + (kelas ? ` <span style="font-size:0.7rem;color:#94a3b8;">(${kelas})</span>` : '');
+    document.getElementById('tabungSelectedSaldo').textContent = 'Rp ' + fmtRp(saldo);
+    document.getElementById('tabungSelectedInfo').style.display = 'block';
+    document.getElementById('tabungDropdownList').classList.remove('show');
+}
+async function prosesTabungan() {
+    const id = document.getElementById('tabungNasabahId').value;
+    if (!id) return alert('Pilih nasabah dulu');
+    const jumlah = parseRp(document.getElementById('tabungJumlah').value);
+    if (!jumlah || jumlah<=0) return alert('Jumlah harus lebih dari 0');
+    try {
+        const res = await apiFetch('/api/tabungan', { method:'POST', body:JSON.stringify({
+            nasabah_id: id, jenis: document.getElementById('tabungJenis').value, jumlah,
+            tanggal: document.getElementById('tabungTanggal').value, keterangan: document.getElementById('tabungKet').value||''
+        })});
+        document.getElementById('tabungJumlah').value=''; document.getElementById('tabungKet').value='';
+        document.getElementById('tabungSelectedSaldo').textContent = 'Rp ' + fmtRp(res.saldo_baru);
+        loadTabungan(); loadDashboard();
+    } catch(e) { alert(e.message); }
+}
+async function loadTabungan() {
+    const nasabahId = document.getElementById('tabungNasabahId').value;
+    let url = '/api/tabungan?page='+tabungPage;
+    if (nasabahId) url += '&nasabah_id='+nasabahId;
+    const data = await apiFetch(url);
+    if (!data) return;
+    let h = '<table><thead><tr><th>Tanggal</th><th>Nama</th><th>Kelas</th><th>Jenis</th><th>Jumlah</th><th>Keterangan</th></tr></thead><tbody>';
+    (data.transaksi||[]).forEach(t => { h += `<tr><td>${t.tanggal}</td><td style="text-align:left">${t.nama}</td><td>${t.kelas||'-'}</td><td>${t.jenis==='setor'?'<span class="badge badge-success">Setor</span>':'<span class="badge badge-danger">Tarik</span>'}</td><td class="transaction-amount ${t.jenis==='setor'?'plus':'minus'}">${t.jenis==='setor'?'+':'-'} Rp ${fmtRp(t.jumlah)}</td><td style="font-size:0.68rem;">${t.keterangan||'-'}</td></tr>`; });
+    h += '</tbody></table>';
+    document.getElementById('tabungTable').innerHTML = h || '<div class="empty-state">Belum ada transaksi</div>';
+    let p = ''; for (let i=1; i<=data.total_pages; i++) p += `<button class="page-btn ${i===tabungPage?'active':''}" onclick="tabungPage=${i};loadTabungan()">${i}</button>`;
+    document.getElementById('tabungPagination').innerHTML = p;
+}
+
+// ─── NASABAH ───
+async function loadNasabah() {
+    const search = document.getElementById('nasabahSearch').value, role = document.getElementById('nasabahRoleFilter').value, kelas = document.getElementById('nasabahKelasFilter').value;
+    let url = '/api/nasabah?';
+    if (search) url += '&search='+encodeURIComponent(search);
+    if (role) url += '&role='+role; if (kelas) url += '&kelas='+encodeURIComponent(kelas);
+    const data = await apiFetch(url);
+    if (!data) return;
+    const kelasSet = new Set(data.map(n=>n.kelas).filter(Boolean));
+    document.getElementById('nasabahKelasFilter').innerHTML = '<option value="">Semua Kelas</option>'+[...kelasSet].sort().map(k=>`<option value="${k}">${k}</option>`).join('');
+    document.getElementById('lapKelas').innerHTML = document.getElementById('nasabahKelasFilter').innerHTML;
+    let h = '';
+    data.forEach(n => { h += `<div class="member-card"><div class="member-name"><span>${n.nama}${n.kelas?` <span class="badge badge-primary" style="font-size:0.6rem;">${n.kelas}</span>`:''}</span><div class="action-buttons"><button class="btn btn-info btn-sm" onclick="openEditNasabah('${n.id}')">Edit</button><button class="btn btn-danger btn-sm" onclick="hapusNasabah('${n.id}')">Hapus</button></div></div><div style="font-size:0.75rem;color:#6b8c5c;">${n.role==='siswa'?'Siswa':'Guru'}</div><div class="member-amount">Rp ${fmtRp(n.saldo)}</div><div style="font-size:0.68rem;color:#94a3b8;margin-top:6px;">Setor: Rp ${fmtRp(n.total_setor)} | Tarik: Rp ${fmtRp(n.total_tarik)}</div></div>`; });
+    document.getElementById('nasabahGrid').innerHTML = h || '<div class="empty-state">Belum ada nasabah</div>';
+}
+async function tambahNasabah() {
+    const nama = document.getElementById('nasabahNama').value.trim();
+    if (!nama) return alert('Nama wajib diisi');
+    await apiFetch('/api/nasabah', { method:'POST', body:JSON.stringify({nama, role:document.getElementById('nasabahRole').value, kelas:document.getElementById('nasabahKelas').value.trim()}) });
+    document.getElementById('nasabahNama').value=''; document.getElementById('nasabahKelas').value='';
+    loadNasabah(); loadTabunganDropdown();
+}
+function openEditNasabah(id) {
+    const n = nasabahList.find(x => x.id==id); if (!n) return;
+    document.getElementById('editNasabahId').value=n.id; document.getElementById('editNasabahRole').value=n.role;
+    document.getElementById('editNasabahNama').value=n.nama; document.getElementById('editNasabahKelas').value=n.kelas||'';
+    document.getElementById('editNasabahSaldo').value='Rp '+fmtRp(n.saldo);
+    document.getElementById('nasabahModal').style.display='flex';
+}
+async function saveEditNasabah() {
+    const id = document.getElementById('editNasabahId').value, nama = document.getElementById('editNasabahNama').value.trim();
+    if (!nama) return alert('Nama wajib diisi');
+    await apiFetch('/api/nasabah', { method:'POST', body:JSON.stringify({id, nama, role:document.getElementById('editNasabahRole').value, kelas:document.getElementById('editNasabahKelas').value}) });
+    closeModal('nasabahModal'); loadNasabah(); loadTabunganDropdown();
+}
+async function hapusNasabah(id) { if (!confirm('Hapus nasabah?')) return; await apiFetch('/api/nasabah?id='+id, { method:'DELETE' }); loadNasabah(); loadTabunganDropdown(); }
+
+// ─── LAPORAN ───
+async function loadLaporan() {
+    const role = document.getElementById('lapRole').value, kelas = document.getElementById('lapKelas').value;
+    let url = '/api/laporan?';
+    if (role) url += '&role='+role; if (kelas) url += '&kelas='+encodeURIComponent(kelas);
+    const data = await apiFetch(url);
+    if (!data) return;
+    let h = '';
+    data.forEach(n => { h += `<tr><td>${n.nama}${n.kelas?` <span class="badge badge-primary" style="font-size:0.6rem;">${n.kelas}</span>`:''}</td><td>${n.role==='siswa'?'Siswa':'Guru'}</td><td>${n.kelas||'-'}</td><td style="color:#1a7a5a;font-weight:700;">Rp ${fmtRp(n.saldo)}</td><td>Rp ${fmtRp(n.total_setor)}</td><td>Rp ${fmtRp(n.total_tarik)}</td></tr>`; });
+    document.getElementById('lapTbody').innerHTML = h || '<tr><td colspan="6" class="empty-state">Tidak ada data</td></tr>';
+}
+
+// ─── EXPORT ───
+async function exportSPP() {
+    const tahun = document.getElementById('sppTahun').value, bulan = document.getElementById('sppBulan').value;
+    const data = await apiFetch(`/api/spp?tahun=${tahun}&bulan=${bulan}`);
+    if (!data||!data.length) return alert('Tidak ada data');
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.map(s=>({NIS:s.nis,Nama:s.nama,Kelas:s.kelas_nama,'SPP/Bln':s.spp_bulanan,Status:s.lunas_bulan_ini?'LUNAS':'BELUM','Total Bayar':s.total_bayar,Sisa:s.sisa}))), 'SPP');
+    XLSX.writeFile(wb, `SPP_${bulan}_${tahun}.xlsx`);
+}
+async function exportTagihan() {
+    const tahun = document.getElementById('tagTahun').value;
+    const data = await apiFetch(`/api/tagihan?tahun=${tahun}`);
+    if (!data||!data.length) return alert('Tidak ada data');
+    const wb=XLSX.utils.book_new();
+    const rows=[['NIS','Nama','Kelas','Tagihan Awal','Total Bayar','Sisa','Status']];
+    data.forEach(s=>rows.push([s.nis,s.nama,s.kelas_nama,s.tagihan_awal,s.total_bayar,s.sisa,s.lunas?'LUNAS':'BELUM']));
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows), 'Tagihan');
+    XLSX.writeFile(wb, `Tagihan_${tahun}.xlsx`);
+}
+async function exportPembukuan() {
+    const tahun = document.getElementById('bukuTahun').value;
+    const d = await apiFetch(`/api/pembukuan?tahun=${tahun}`);
+    if (!d||!d.kelas) return alert('Tidak ada data');
+    const wb=XLSX.utils.book_new();
+    Object.keys(d.kelas).forEach(kelas => {
+        const rows=[['No','NIS','Nama','Tagihan','Bayar Tag','Sisa Tag','Kew SPP','Bayar SPP','Sisa SPP','Total Kew','Total Bayar','Grand Sisa']];
+        d.kelas[kelas].forEach((s,i)=>rows.push([i+1,s.nis,s.nama,s.tagihan_awal,s.bayar_tagihan,s.sisa_tagihan,s.kewajiban_spp,s.bayar_spp,s.sisa_spp,s.total_kewajiban,s.total_dibayar,s.grand_sisa]));
+        XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows), kelas.substring(0,15));
+    });
+    XLSX.writeFile(wb, `Pembukuan_${tahun}.xlsx`);
+}
+async function exportLaporanExcel() {
+    const role = document.getElementById('lapRole').value, kelas = document.getElementById('lapKelas').value;
+    let url = '/api/laporan?';
+    if (role) url+='&role='+role; if (kelas) url+='&kelas='+encodeURIComponent(kelas);
+    const data = await apiFetch(url);
+    if (!data||!data.length) return alert('Tidak ada data');
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(data.map(n=>({Nama:n.nama,Role:n.role==='siswa'?'Siswa':'Guru',Kelas:n.kelas||'',Saldo:n.saldo,'Total Setor':n.total_setor,'Total Tarik':n.total_tarik}))),'Laporan');
+    XLSX.writeFile(wb, `Laporan_Tabungan_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+// ─── BACKUP ───
+async function backupData() {
+    const data = await apiFetch('/api/backup');
+    if (!data) return;
+    const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = `backup_spp_tabungan_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.json`;
+    a.click(); alert('Backup berhasil!');
+}
+async function restoreData() {
+    const file = document.getElementById('restoreFile').files[0];
+    if (!file) return alert('Pilih file backup');
+    const text = await file.text();
+    const data = JSON.parse(text);
+    if (!data.siswa || !data.nasabah) return alert('Format backup tidak valid');
+    await apiFetch('/api/restore', { method:'POST', body:JSON.stringify(data) });
+    alert('Restore berhasil!'); loadDashboard();
+}
+
+// ─── INIT ───
+async function init() {
+    if (!getToken()) { window.location.href = '/login.html'; return; }
+    await checkAuth();
+    document.querySelectorAll('select[id$="Tahun"]').forEach(el => { if (!el.innerHTML.trim()) el.innerHTML = getTahunOptions(new Date().getFullYear()); });
+    document.getElementById('sppBulan').innerHTML = getBulanOptions('Juli');
+    document.getElementById('sppTanggalDefault').value = new Date().getFullYear() + '-07-15';
+    document.getElementById('tabungTanggal').value = new Date().toISOString().slice(0,10);
+    await loadKelas();
+    loadDashboard();
+}
+init();
+</script>
+</body>
+</html>
