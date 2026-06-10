@@ -502,6 +502,44 @@ app.post('/api/restore', authMiddleware, async (req, res) => {
   } catch (err) { await query('ROLLBACK').catch(()=>{}); errorHandler(res, err, 'Restore gagal'); }
 });
 
+app.get('/api/riwayat', authMiddleware, async (req, res) => {
+  try {
+    const { tahun, search, kelas_id, siswa_id, jenis } = req.query;
+    const t = tahun || String(new Date().getFullYear());
+    let conditions = [];
+    if (siswa_id) conditions.push(`sp.siswa_id=${escapeLiteral(siswa_id)}`);
+    if (kelas_id) conditions.push(`s.kelas_id=${escapeLiteral(kelas_id)}`);
+    if (search) conditions.push(`(s.nama ILIKE ${escapeLiteral('%'+search+'%')} OR s.nis ILIKE ${escapeLiteral('%'+search+'%')})`);
+    let where = conditions.length ? 'AND ' + conditions.join(' AND ') : '';
+    let sql = `
+      (SELECT sp.id, sp.siswa_id, s.nis, s.nama, k.nama as kelas_nama, 'spp' as jenis, sp.bulan as seri, sp.jumlah, sp.tanggal, sp.keterangan
+       FROM spp_payments sp JOIN siswa s ON s.id=sp.siswa_id JOIN kelas k ON k.id=s.kelas_id
+       WHERE sp.tahun_ajaran=${escapeLiteral(t)} ${where})
+      UNION ALL
+      (SELECT tp.id, tp.siswa_id, s.nis, s.nama, k.nama as kelas_nama, 'tagihan' as jenis, tp.seri::text as seri, tp.jumlah, tp.tanggal, tp.keterangan
+       FROM tagihan_payments tp JOIN siswa s ON s.id=tp.siswa_id JOIN kelas k ON k.id=s.kelas_id
+       WHERE tp.tahun_ajaran=${escapeLiteral(t)} ${where})
+      ORDER BY tanggal, id`;
+    if (siswa_id) sql += ', id';
+    const rows = (await query(sql)).rows;
+    res.json(rows || []);
+  } catch (err) { errorHandler(res, err); }
+});
+
+app.delete('/api/spp/:id', authMiddleware, async (req, res) => {
+  try {
+    await query(`DELETE FROM spp_payments WHERE id=${escapeLiteral(req.params.id)}`);
+    res.json({ success: true });
+  } catch (err) { errorHandler(res, err); }
+});
+
+app.delete('/api/tagihan/:id', authMiddleware, async (req, res) => {
+  try {
+    await query(`DELETE FROM tagihan_payments WHERE id=${escapeLiteral(req.params.id)}`);
+    res.json({ success: true });
+  } catch (err) { errorHandler(res, err); }
+});
+
 app.get('*', (req, res) => {
   const filePath = path.join(publicPath, req.path === '/' ? 'index.html' : req.path);
   if (fs.existsSync(filePath) && !fs.statSync(filePath).isDirectory()) {

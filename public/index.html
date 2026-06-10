@@ -118,6 +118,56 @@
         .mode-card.tabungan { border:3px solid #6366f1; }
         .mode-switch { font-size:0.72rem;font-weight:600;opacity:0.85;cursor:pointer;padding:6px 14px;border-radius:30px;border:1px solid rgba(255,255,255,0.25);transition:all 0.2s; }
         .mode-switch:hover { opacity:1;background:rgba(255,255,255,0.08); }
+        .receipt-overlay {
+            display: none; position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.4);
+            backdrop-filter: blur(4px);
+            z-index: 1200;
+            align-items: center; justify-content: center;
+        }
+        .receipt-overlay.show { display: flex; }
+        .receipt {
+            background: #fff; width: 300px; max-width: 90vw;
+            padding: 24px 20px 16px;
+            border-radius: 16px;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.2);
+            font-family: 'Courier New', monospace;
+            font-size: 0.75rem; color: #222;
+        }
+        .receipt .header { text-align: center; margin-bottom: 12px; background: none; padding: 0; color: #1e4a2f; }
+        .receipt .header .title { font-size: 1rem; font-weight: 800; letter-spacing: 1px; }
+        .receipt .header::before { display: none !important; }
+        .receipt .body table { width: 100%; border-collapse: collapse; }
+        .receipt .body table td { padding: 4px 0; border: none; font-size: 0.75rem; background: transparent; }
+        .receipt .body table tr + tr td { border-top: 1px dotted #eee; }
+        .receipt .footer { text-align: center; color: #999; }
+        .history-summary { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+        .history-summary .card { flex: 1; min-width: 120px; background: #f8fbf6; border: 1px solid #e4ecd8; border-radius: 12px; padding: 12px; text-align: center; }
+        .history-summary .card .label { font-size: 0.6rem; font-weight: 700; color: #5a7a4e; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 4px; }
+        .history-summary .card .value { font-size: 1rem; font-weight: 800; color: #1e4a2f; }
+        .history-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
+        .history-table th { background: #f0f5ea; color: #1e4a2f; font-size: 0.6rem; padding: 8px 6px; text-align: center; text-transform: uppercase; letter-spacing: 0.3px; }
+        .history-table td { padding: 8px 6px; text-align: center; border-bottom: 1px solid #eef3e8; font-size: 0.72rem; }
+        .cicilan-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-size: 0.6rem;
+            font-weight: 600;
+            background: #e8f0fe;
+            color: #1e4a2f;
+        }
+        @media print {
+            body * { visibility: hidden !important; }
+            .receipt-overlay { position: fixed !important; top: 0 !important; left: 0 !important; width: 100% !important; height: auto !important; background: none !important; backdrop-filter: none !important; display: flex !important; z-index: 9999 !important; }
+            .receipt-overlay .receipt { visibility: visible !important; box-shadow: none !important; border: none !important; border-radius: 0 !important; padding: 10px !important; margin: 0 auto !important; width: 80mm !important; }
+            .receipt-overlay .receipt * { visibility: visible !important; }
+            .receipt .no-print { display: none !important; }
+            .receipt-overlay .receipt .header { background: none !important; }
+            .receipt-overlay .receipt .header::before { display: none !important; }
+            @page { margin: 5mm; size: auto; }
+        }
     </style>
 </head>
 <body>
@@ -152,6 +202,7 @@
         <button class="tab" data-tab="nasabah"><i class="fas fa-users"></i> Nasabah</button>
         <button class="tab" data-tab="laporan"><i class="fas fa-chart-bar"></i> Laporan</button>
         <button class="tab" data-tab="backup"><i class="fas fa-database"></i> Backup</button>
+        <button class="tab" data-tab="riwayat"><i class="fas fa-history"></i> Riwayat</button>
     </div>
 
     <div id="tab-dashboard" class="tab-content"><div class="stat-grid" id="dashStats"></div><div class="stat-grid" id="dashStats2"></div><div class="filter-card"><div class="filter-group"><label>Tahun Ajaran</label><select id="dashTahun" onchange="loadDashboard()"></select></div></div><div class="table-wrapper" id="dashTable"></div></div>
@@ -257,6 +308,16 @@
             <div class="stat-card"><h3>Restore Data</h3><input type="file" id="restoreFile" accept=".json" style="margin-top:6px;font-size:0.75rem;"><button class="btn btn-success" onclick="restoreData()" style="margin-top:6px;"><i class="fas fa-upload"></i> Restore</button></div>
         </div>
     </div>
+
+    <div id="tab-riwayat" class="tab-content">
+        <div class="filter-card">
+            <div class="filter-group"><label>Tahun</label><select id="riwTahun" onchange="loadRiwayat()"></select></div>
+            <div class="filter-group"><label>Kelas</label><select id="riwKelas" onchange="loadRiwayat()"><option value="">Semua</option></select></div>
+            <button class="btn btn-success" onclick="exportRiwayatExcel()"><i class="fas fa-file-excel"></i> Export</button>
+        </div>
+        <input type="text" id="riwSearch" class="search-input" placeholder="Cari nama/NIS..." onkeyup="loadRiwayat()" style="margin-bottom:12px;">
+        <div class="table-wrapper" id="riwayatTable"></div>
+    </div>
 </div>
 
 <div id="siswaModal" class="modal"><div class="modal-content">
@@ -309,6 +370,41 @@
     <div style="display:flex;gap:10px;"><button class="btn btn-primary" onclick="saveEditNasabah()">Simpan</button><button class="btn btn-danger" onclick="closeModal('nasabahModal')">Batal</button></div>
 </div></div>
 
+<div id="receiptOverlay" class="receipt-overlay">
+    <div class="receipt" id="receiptContent">
+        <div class="header">
+            <div class="title">RA ALJAWAHIR</div>
+            <div style="font-size:0.7rem;opacity:0.7;margin-top:2px;">BUKTI PEMBAYARAN</div>
+        </div>
+        <div class="body" id="receiptBody"></div>
+        <div class="footer">
+            <div class="no-print" style="display:flex;gap:8px;justify-content:center;margin-top:12px;">
+                <button class="btn btn-primary btn-sm" onclick="printReceipt()">Cetak PDF</button>
+                <button class="btn btn-danger btn-sm" onclick="closeReceipt()">Tutup</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="historyModal" class="modal">
+    <div class="modal-content" style="max-width:560px;">
+        <h2>Riwayat Pembayaran</h2>
+        <div style="margin-bottom:12px;padding:12px;background:#f8fbf6;border-radius:12px;border:1px solid #e4ecd8;">
+            <div id="historyInfo" style="font-size:0.85rem;line-height:1.8;"></div>
+        </div>
+        <div class="history-summary" id="historySummary"></div>
+        <div style="max-height:300px;overflow-y:auto;border:1px solid #e6ede0;border-radius:12px;">
+            <table class="history-table">
+                <thead><tr><th>Tanggal</th><th>Jenis</th><th>Seri</th><th>Jumlah</th><th>Keterangan</th><th>Aksi</th></tr></thead>
+                <tbody id="historyBody"></tbody>
+            </table>
+        </div>
+        <div style="text-align:right;margin-top:12px;">
+            <button class="btn btn-danger" onclick="closeHistoryModal()">Tutup</button>
+        </div>
+    </div>
+</div>
+
 <script>
 const BULAN = ['Juli','Agustus','September','Oktober','November','Desember','Januari','Februari','Maret','April','Mei','Juni'];
 let siswaList = [], kelasList = [], nasabahList = [];
@@ -356,13 +452,14 @@ function showTab(tabId) {
     if (tabId === 'tabungan') { loadTabunganDropdown(); loadTabungan(); }
     if (tabId === 'nasabah') loadNasabah();
     if (tabId === 'laporan') loadLaporan();
+    if (tabId === 'riwayat') loadRiwayat();
 }
 document.querySelectorAll('.tab').forEach(btn => {
     if (!btn.disabled) btn.addEventListener('click', () => showTab(btn.getAttribute('data-tab')));
 });
 
 function closeModal(id) { document.getElementById(id).style.display = 'none'; }
-window.onclick = e => { if (e.target.classList.contains('modal')) e.target.style.display = 'none'; };
+window.onclick = e => { if (e.target.classList.contains('modal')) e.target.style.display = 'none'; if (e.target.id === 'receiptOverlay') e.target.classList.remove('show'); };
 
 function getTahunOptions(s) { const y = new Date().getFullYear(); let h=''; for(let i=y-3;i<=y+2;i++) h+=`<option value="${i}" ${i==s?'selected':''}>${i}/${i+1}</option>`; return h; }
 function getBulanOptions(s) { return BULAN.map(b => `<option value="${b}" ${b==s?'selected':''}>${b}</option>`).join(''); }
@@ -398,7 +495,7 @@ async function loadSPP() {
     const data = await apiFetch(url);
     if (!data) return;
     let h = '<table><thead><tr><th>No</th><th>NIS</th><th>Nama</th><th>Kelas</th><th>SPP/Bln</th><th>Status</th><th>Total Bayar</th><th>Sisa</th><th>Aksi</th></tr></thead><tbody>';
-    data.forEach((s,i) => { h += `<tr><td>${i+1}</td><td>${s.nis}</td><td style="text-align:left">${s.nama}</td><td>${s.kelas_nama}</td><td>Rp ${fmtRp(s.spp_bulanan)}</td><td>${s.lunas_bulan_ini ? '<span class="badge badge-success">LUNAS</span>' : '<span class="badge badge-danger">BELUM</span>'}</td><td>Rp ${fmtRp(s.total_bayar)}</td><td>Rp ${fmtRp(s.sisa)}</td><td class="action-buttons">${s.lunas_bulan_ini ? `<button class="btn btn-warning btn-sm" onclick="cancelSPP('${s.id}','${tahun}','${bulan}')">Batal</button>` : `<button class="btn btn-success btn-sm" onclick="openBayarSPP('${s.id}','${tahun}','${bulan}','${s.nama}','${s.spp_bulanan}')">Bayar</button>`}</td></tr>`; });
+    data.forEach((s,i) => { h += `<tr><td>${i+1}</td><td>${s.nis}</td><td style="text-align:left">${s.nama}</td><td>${s.kelas_nama}</td><td>Rp ${fmtRp(s.spp_bulanan)}</td><td>${s.lunas_bulan_ini ? '<span class="badge badge-success">LUNAS</span>' : '<span class="badge badge-danger">BELUM</span>'}</td><td>Rp ${fmtRp(s.total_bayar)}</td><td>Rp ${fmtRp(s.sisa)}</td><td class="action-buttons">${s.lunas_bulan_ini ? `<button class="btn btn-warning btn-sm" onclick="cancelSPP('${s.id}','${tahun}','${bulan}')">Batal</button>` : `<button class="btn btn-success btn-sm" onclick="openBayarSPP('${s.id}','${tahun}','${bulan}','${s.nama}','${s.spp_bulanan}')">Bayar</button>`}<button class="btn btn-info btn-sm" onclick="openHistoryModal('${s.id}','${tahun}')">Riwayat</button></td></tr>`; });
     h += '</tbody></table>';
     document.getElementById('sppTable').innerHTML = h || '<div class="empty-state">Tidak ada data</div>';
 }
@@ -415,12 +512,18 @@ function openBayarSPP(id, tahun, bulan, nama, jumlah) {
 document.getElementById('sppForm').addEventListener('submit', async function(e) {
     e.preventDefault();
     try {
+        const siswaId = document.getElementById('sppPaySiswaId').value;
+        const tahun = document.getElementById('sppPayTahun').value;
+        const bulan = document.getElementById('sppPayBulan').value;
+        const jumlah = parseRp(document.getElementById('sppPayJumlah').value);
+        const tanggal = document.getElementById('sppPayTanggal').value;
+        const ket = document.getElementById('sppPayKet').value;
         await apiFetch('/api/spp', { method:'POST', body:JSON.stringify({
-            siswa_id: document.getElementById('sppPaySiswaId').value, tahun_ajaran: document.getElementById('sppPayTahun').value,
-            bulan: document.getElementById('sppPayBulan').value, jumlah: parseRp(document.getElementById('sppPayJumlah').value),
-            tanggal: document.getElementById('sppPayTanggal').value, keterangan: document.getElementById('sppPayKet').value
+            siswa_id: siswaId, tahun_ajaran: tahun, bulan, jumlah, tanggal, keterangan: ket
         })});
-        alert('SPP berhasil dibayar!'); closeModal('sppModal'); loadSPP(); loadDashboard();
+        alert('SPP berhasil dibayar!');
+        showReceipt({ jenis:'spp', nama: document.getElementById('sppPayInfo').textContent, jumlah, tanggal, keterangan: ket, bulan });
+        closeModal('sppModal'); loadSPP(); loadDashboard();
     } catch(e) { alert(e.message); }
 });
 async function cancelSPP(id, tahun, bulan) {
@@ -441,7 +544,7 @@ async function loadTagihan() {
     let gTag=0,gBayar=0;
     data.forEach((s,i) => { gTag+=s.tagihan_awal; gBayar+=s.total_bayar;
         const cic = (s.cicilan||[]).map(c => `Cic-${c.seri}: Rp ${fmtRp(c.jumlah)}`).join('<br>') || '-';
-        h += `<tr><td>${i+1}</td><td>${s.nis}</td><td style="text-align:left">${s.nama}</td><td>${s.kelas_nama}</td><td>Rp ${fmtRp(s.tagihan_awal)}</td><td style="font-size:0.65rem;">${cic}</td><td><strong>Rp ${fmtRp(s.total_bayar)}</strong></td><td>Rp ${fmtRp(s.sisa)}</td><td>${s.lunas ? '<span class="badge badge-success">LUNAS</span>' : '<span class="badge badge-warning">BELUM</span>'}</td><td>${s.lunas ? '<span style="font-size:0.7rem;color:#6b8c5c;">Selesai</span>' : `<button class="btn btn-warning btn-sm" onclick="openBayarTagihan('${s.id}','${tahun}','${s.nama}','${s.tagihan_awal}','${s.total_bayar}','${s.jumlah_cicilan}')">Cicil ${parseInt(s.jumlah_cicilan)+1}</button>`}</td></tr>`;
+        h += `<tr><td>${i+1}</td><td>${s.nis}</td><td style="text-align:left">${s.nama}</td><td>${s.kelas_nama}</td><td>Rp ${fmtRp(s.tagihan_awal)}</td><td style="font-size:0.65rem;">${cic}</td><td><strong>Rp ${fmtRp(s.total_bayar)}</strong></td><td>Rp ${fmtRp(s.sisa)}</td><td>${s.lunas ? '<span class="badge badge-success">LUNAS</span>' : '<span class="badge badge-warning">BELUM</span>'}</td><td class="action-buttons">${s.lunas ? '<span style="font-size:0.7rem;color:#6b8c5c;">Selesai</span>' : `<button class="btn btn-warning btn-sm" onclick="openBayarTagihan('${s.id}','${tahun}','${s.nama}','${s.tagihan_awal}','${s.total_bayar}','${s.jumlah_cicilan}')">Cicil ${parseInt(s.jumlah_cicilan)+1}</button>`}<button class="btn btn-info btn-sm" onclick="openHistoryModal('${s.id}','${tahun}')">Riwayat</button></td></tr>`;
     });
     h += `<tr class="total-row"><td colspan="4"><strong>TOTAL</strong></td><td><strong>Rp ${fmtRp(gTag)}</strong></td><td></td><td><strong>Rp ${fmtRp(gBayar)}</strong></td><td><strong>Rp ${fmtRp(gTag-gBayar)}</strong></td><td colspan="2"></td></tr></tbody></table>`;
     document.getElementById('tagTable').innerHTML = h || '<div class="empty-state">Tidak ada data</div>';
@@ -457,12 +560,18 @@ function openBayarTagihan(id, tahun, nama, tagihan, bayar, cicilan) {
 document.getElementById('tagForm').addEventListener('submit', async function(e) {
     e.preventDefault();
     try {
+        const siswaId = document.getElementById('tagPaySiswaId').value;
+        const tahun = document.getElementById('tagPayTahun').value;
+        const jumlah = parseRp(document.getElementById('tagPayJumlah').value);
+        const tanggal = document.getElementById('tagPayTanggal').value;
+        const ket = document.getElementById('tagPayKet').value;
         await apiFetch('/api/tagihan', { method:'POST', body:JSON.stringify({
-            siswa_id: document.getElementById('tagPaySiswaId').value, tahun_ajaran: document.getElementById('tagPayTahun').value,
-            jumlah: parseRp(document.getElementById('tagPayJumlah').value), tanggal: document.getElementById('tagPayTanggal').value,
-            keterangan: document.getElementById('tagPayKet').value
+            siswa_id: siswaId, tahun_ajaran: tahun, jumlah, tanggal, keterangan: ket
         })});
-        alert('Cicilan berhasil!'); closeModal('tagModal'); loadTagihan(); loadDashboard();
+        alert('Cicilan berhasil!');
+        const nama = document.getElementById('tagPayInfo').textContent;
+        showReceipt({ jenis:'tagihan', nama, jumlah, tanggal, keterangan: ket });
+        closeModal('tagModal'); loadTagihan(); loadDashboard();
     } catch(e) { alert(e.message); }
 });
 
@@ -519,7 +628,7 @@ async function loadKelas() {
     const data = await apiFetch('/api/kelas');
     if (!data) return;
     kelasList = data;
-    document.querySelectorAll('[id$="KelasFilter"], #fKelas').forEach(el => {
+    document.querySelectorAll('[id$="KelasFilter"], #fKelas, #riwKelas').forEach(el => {
         if (el.tagName==='SELECT' && el.id !== 'fKelas') {
             el.innerHTML = '<option value="">Semua Kelas</option>' + data.map(k => `<option value="${k.id}">${k.nama}</option>`).join('');
         }
@@ -549,16 +658,21 @@ async function loadPembukuan() {
     let html = ''; let gTag=0,gBayarTag=0,gSpp=0,gBayarSpp=0;
     Object.keys(km).forEach(kelas => {
         const siswa = km[kelas];
-        html += `<div style="margin-bottom:20px;"><div style="font-weight:800;color:#1e4a2f;padding:8px 0;">Kelas: ${kelas} (${siswa.length} siswa)</div>`;
-        html += '<table><thead><tr><th>No</th><th>NIS</th><th>Nama</th><th>Tagihan</th><th>Bayar Tag</th><th>Sisa Tag</th><th>Kew SPP</th><th>Bayar SPP</th><th>Sisa SPP</th><th>Total Kew</th><th>Total Bayar</th><th>Grand Sisa</th></tr></thead><tbody>';
+        html += `<div style="margin-bottom:24px;"><div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;padding:8px 4px;"><span style="font-size:1rem;font-weight:800;color:#1e4a2f;">Kelas: ${kelas}</span><span style="font-size:0.75rem;color:#6b8c5c;">(${siswa.length} siswa) - TA ${tahun}/${parseInt(tahun)+1}</span></div>`;
+        html += '<table style="margin-bottom:0;"><thead><tr><th>No</th><th>NIS</th><th>Nama</th><th>Tagihan Awal</th><th>Cicilan 1</th><th>Cicilan 2</th><th>Cicilan 3</th><th>Cicilan 4</th><th>Total Bayar Tag</th><th>Sisa Tag</th><th>Kewajiban SPP</th><th>Bayar SPP</th><th>Sisa SPP</th><th>Total Kewajiban</th><th>Total Dibayar</th><th>Grand Sisa</th></tr></thead><tbody>';
         let kTag=0,kBayarTag=0,kSpp=0,kBayarSpp=0;
-        siswa.forEach((s,i) => { kTag+=parseFloat(s.tagihan_awal); kBayarTag+=parseFloat(s.bayar_tagihan); kSpp+=parseFloat(s.kewajiban_spp); kBayarSpp+=parseFloat(s.bayar_spp);
-            html += `<tr><td>${i+1}</td><td>${s.nis}</td><td style="text-align:left">${s.nama}</td><td>Rp ${fmtRp(s.tagihan_awal)}</td><td>Rp ${fmtRp(s.bayar_tagihan)}</td><td>Rp ${fmtRp(s.sisa_tagihan)}</td><td>Rp ${fmtRp(s.kewajiban_spp)}</td><td>Rp ${fmtRp(s.bayar_spp)}</td><td>Rp ${fmtRp(s.sisa_spp)}</td><td><strong>Rp ${fmtRp(s.total_kewajiban)}</strong></td><td><strong>Rp ${fmtRp(s.total_dibayar)}</strong></td><td><strong>Rp ${fmtRp(s.grand_sisa)}</strong></td></tr>`;
+        siswa.forEach((s,i) => {
+            kTag+=parseFloat(s.tagihan_awal); kBayarTag+=parseFloat(s.bayar_tagihan); kSpp+=parseFloat(s.kewajiban_spp); kBayarSpp+=parseFloat(s.bayar_spp);
+            const cic = s.cicilan||[];
+            const cols = ['','','',''];
+            cic.forEach((c, ci) => { if (ci < 4) cols[ci] = 'Rp ' + fmtRp(c.jumlah); });
+            html += `<tr><td>${i+1}</td><td>${s.nis}</td><td style="text-align:left">${s.nama}</td><td>Rp ${fmtRp(s.tagihan_awal)}</td><td>${cols[0]}</td><td>${cols[1]}</td><td>${cols[2]}</td><td>${cols[3]}</td><td><strong>Rp ${fmtRp(s.bayar_tagihan)}</strong></td><td>Rp ${fmtRp(s.sisa_tagihan)}</td><td>Rp ${fmtRp(s.kewajiban_spp)}</td><td>Rp ${fmtRp(s.bayar_spp)}</td><td>Rp ${fmtRp(s.sisa_spp)}</td><td><strong>Rp ${fmtRp(s.total_kewajiban)}</strong></td><td><strong>Rp ${fmtRp(s.total_dibayar)}</strong></td><td><strong>Rp ${fmtRp(s.grand_sisa)}</strong></td></tr>`;
         });
-        html += `<tr class="total-row"><td colspan="3"><strong>SUBTOTAL</strong></td><td>Rp ${fmtRp(kTag)}</td><td>Rp ${fmtRp(kBayarTag)}</td><td>Rp ${fmtRp(kTag-kBayarTag)}</td><td>Rp ${fmtRp(kSpp)}</td><td>Rp ${fmtRp(kBayarSpp)}</td><td>Rp ${fmtRp(kSpp-kBayarSpp)}</td><td>Rp ${fmtRp(kTag+kSpp)}</td><td>Rp ${fmtRp(kBayarTag+kBayarSpp)}</td><td>Rp ${fmtRp((kTag+kSpp)-(kBayarTag+kBayarSpp))}</td></tr></tbody></table></div>`;
+        html += `<tr class="total-row"><td colspan="3"><strong>SUBTOTAL ${kelas}</strong></td><td><strong>Rp ${fmtRp(kTag)}</strong></td><td colspan="4"></td><td><strong>Rp ${fmtRp(kBayarTag)}</strong></td><td><strong>Rp ${fmtRp(kTag-kBayarTag)}</strong></td><td><strong>Rp ${fmtRp(kSpp)}</strong></td><td><strong>Rp ${fmtRp(kBayarSpp)}</strong></td><td><strong>Rp ${fmtRp(kSpp-kBayarSpp)}</strong></td><td><strong>Rp ${fmtRp(kTag+kSpp)}</strong></td><td><strong>Rp ${fmtRp(kBayarTag+kBayarSpp)}</strong></td><td><strong>Rp ${fmtRp((kTag+kSpp)-(kBayarTag+kBayarSpp))}</strong></td></tr></tbody></table></div>`;
         gTag+=kTag; gBayarTag+=kBayarTag; gSpp+=kSpp; gBayarSpp+=kBayarSpp;
     });
-    html += `<div style="margin-top:12px;"><table><thead><tr><th colspan="12" style="font-size:0.85rem;">GRAND TOTAL</th></tr></thead><tbody><tr class="total-row"><td colspan="3"><strong>GRAND TOTAL</strong></td><td>Rp ${fmtRp(gTag)}</td><td>Rp ${fmtRp(gBayarTag)}</td><td>Rp ${fmtRp(gTag-gBayarTag)}</td><td>Rp ${fmtRp(gSpp)}</td><td>Rp ${fmtRp(gBayarSpp)}</td><td>Rp ${fmtRp(gSpp-gBayarSpp)}</td><td>Rp ${fmtRp(gTag+gSpp)}</td><td>Rp ${fmtRp(gBayarTag+gBayarSpp)}</td><td>Rp ${fmtRp((gTag+gSpp)-(gBayarTag+gBayarSpp))}</td></tr></tbody></table></div>`;
+    html += `<div style="margin-top:8px;"><table><thead><tr><th colspan="16" style="font-size:0.85rem;">GRAND TOTAL</th></tr></thead><tbody><tr class="total-row"><td colspan="3"><strong>GRAND TOTAL</strong></td><td><strong>Rp ${fmtRp(gTag)}</strong></td><td colspan="4"></td><td><strong>Rp ${fmtRp(gBayarTag)}</strong></td><td><strong>Rp ${fmtRp(gTag-gBayarTag)}</strong></td><td><strong>Rp ${fmtRp(gSpp)}</strong></td><td><strong>Rp ${fmtRp(gBayarSpp)}</strong></td><td><strong>Rp ${fmtRp(gSpp-gBayarSpp)}</strong></td><td><strong>Rp ${fmtRp(gTag+gSpp)}</strong></td><td><strong>Rp ${fmtRp(gBayarTag+gBayarSpp)}</strong></td><td><strong>Rp ${fmtRp((gTag+gSpp)-(gBayarTag+gBayarSpp))}</strong></td></tr></tbody></table></div>`;
+    html += `<div class="stat-grid" style="margin-top:20px;"><div class="stat-card"><h3>Tagihan Awal Dibayar</h3><div class="number">Rp ${fmtRp(gBayarTag)}</div><div class="small">Dari total Rp ${fmtRp(gTag)}</div></div><div class="stat-card"><h3>SPP Dibayar</h3><div class="number">Rp ${fmtRp(gBayarSpp)}</div><div class="small">Dari total Rp ${fmtRp(gSpp)}</div></div><div class="stat-card"><h3>Total Seluruh Pembayaran</h3><div class="number">Rp ${fmtRp(gBayarTag+gBayarSpp)}</div><div class="small">Dari total kewajiban Rp ${fmtRp(gTag+gSpp)}</div></div></div>`;
     document.getElementById('bukuContainer').innerHTML = html || '<div class="empty-state">Tidak ada data</div>';
 }
 
@@ -664,7 +778,7 @@ async function exportSPP() {
     const data = await apiFetch(`/api/spp?tahun=${tahun}&bulan=${bulan}`);
     if (!data||!data.length) return alert('Tidak ada data');
     const wb=XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.map(s=>({NIS:s.nis,Nama:s.nama,Kelas:s.kelas_nama,'SPP/Bln':s.spp_bulanan,Status:s.lunas_bulan_ini?'LUNAS':'BELUM','Total Bayar':s.total_bayar,Sisa:s.sisa}))), 'SPP');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.map(s=>({NIS:s.nis,Nama:s.nama,Kelas:s.kelas_nama,'SPP/Bln':'Rp '+fmtRp(s.spp_bulanan),Status:s.lunas_bulan_ini?'LUNAS':'BELUM','Total Bayar':'Rp '+fmtRp(s.total_bayar),Sisa:'Rp '+fmtRp(s.sisa}))), 'SPP');
     XLSX.writeFile(wb, `SPP_${bulan}_${tahun}.xlsx`);
 }
 async function exportTagihan() {
@@ -673,7 +787,7 @@ async function exportTagihan() {
     if (!data||!data.length) return alert('Tidak ada data');
     const wb=XLSX.utils.book_new();
     const rows=[['NIS','Nama','Kelas','Tagihan Awal','Total Bayar','Sisa','Status']];
-    data.forEach(s=>rows.push([s.nis,s.nama,s.kelas_nama,s.tagihan_awal,s.total_bayar,s.sisa,s.lunas?'LUNAS':'BELUM']));
+    data.forEach(s=>rows.push([s.nis,s.nama,s.kelas_nama,'Rp '+fmtRp(s.tagihan_awal),'Rp '+fmtRp(s.total_bayar),'Rp '+fmtRp(s.sisa),s.lunas?'LUNAS':'BELUM']));
     XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows), 'Tagihan');
     XLSX.writeFile(wb, `Tagihan_${tahun}.xlsx`);
 }
@@ -684,7 +798,7 @@ async function exportPembukuan() {
     const wb=XLSX.utils.book_new();
     Object.keys(d.kelas).forEach(kelas => {
         const rows=[['No','NIS','Nama','Tagihan','Bayar Tag','Sisa Tag','Kew SPP','Bayar SPP','Sisa SPP','Total Kew','Total Bayar','Grand Sisa']];
-        d.kelas[kelas].forEach((s,i)=>rows.push([i+1,s.nis,s.nama,s.tagihan_awal,s.bayar_tagihan,s.sisa_tagihan,s.kewajiban_spp,s.bayar_spp,s.sisa_spp,s.total_kewajiban,s.total_dibayar,s.grand_sisa]));
+        d.kelas[kelas].forEach((s,i)=>rows.push([i+1,s.nis,s.nama,'Rp '+fmtRp(s.tagihan_awal),'Rp '+fmtRp(s.bayar_tagihan),'Rp '+fmtRp(s.sisa_tagihan),'Rp '+fmtRp(s.kewajiban_spp),'Rp '+fmtRp(s.bayar_spp),'Rp '+fmtRp(s.sisa_spp),'Rp '+fmtRp(s.total_kewajiban),'Rp '+fmtRp(s.total_dibayar),'Rp '+fmtRp(s.grand_sisa)]));
         XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(rows), kelas.substring(0,15));
     });
     XLSX.writeFile(wb, `Pembukuan_${tahun}.xlsx`);
@@ -696,7 +810,7 @@ async function exportLaporanExcel() {
     const data = await apiFetch(url);
     if (!data||!data.length) return alert('Tidak ada data');
     const wb=XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(data.map(n=>({Nama:n.nama,Role:n.role==='siswa'?'Siswa':'Guru',Kelas:n.kelas||'',Saldo:n.saldo,'Total Setor':n.total_setor,'Total Tarik':n.total_tarik}))),'Laporan');
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(data.map(n=>({Nama:n.nama,Role:n.role==='siswa'?'Siswa':'Guru',Kelas:n.kelas||'',Saldo:'Rp '+fmtRp(n.saldo),'Total Setor':'Rp '+fmtRp(n.total_setor),'Total Tarik':'Rp '+fmtRp(n.total_tarik)}))),'Laporan');
     XLSX.writeFile(wb, `Laporan_Tabungan_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 
@@ -719,8 +833,91 @@ async function restoreData() {
     alert('Restore berhasil!'); loadDashboard();
 }
 
+// ─── RECEIPT ───
+function showReceipt(data) {
+  const html = `
+    <table>
+      <tr><td>Nama</td><td>: <strong>${data.nama}</strong></td></tr>
+      <tr><td>Jenis</td><td>: ${data.jenis === 'spp' ? 'SPP ' + (data.bulan||'') : 'Cicilan Tagihan Awal'}</td></tr>
+      <tr><td>Jumlah</td><td>: <strong>Rp ${fmtRp(data.jumlah)}</strong></td></tr>
+      <tr><td>Tanggal</td><td>: ${data.tanggal}</td></tr>
+      ${data.keterangan ? `<tr><td>Ket</td><td>: ${data.keterangan}</td></tr>` : ''}
+    </table>`;
+  document.getElementById('receiptBody').innerHTML = html;
+  document.getElementById('receiptOverlay').classList.add('show');
+}
+function closeReceipt() { document.getElementById('receiptOverlay').classList.remove('show'); }
+function printReceipt() { window.print(); }
+
+// ─── HISTORY MODAL ───
+async function openHistoryModal(siswaId, tahun) {
+  const s = siswaList.find(x => x.id == siswaId);
+  if (!s) return;
+  document.getElementById('historyInfo').innerHTML = `<strong>${s.nama}</strong> (${s.nis}) - ${s.kelas_nama} - TA ${tahun}/${parseInt(tahun)+1}`;
+  const spp = await apiFetch(`/api/riwayat?siswa_id=${siswaId}&tahun=${tahun}&jenis=spp`);
+  const tag = await apiFetch(`/api/riwayat?siswa_id=${siswaId}&tahun=${tahun}&jenis=tagihan`);
+  const all = [...(spp||[]), ...(tag||[])];
+  all.sort((a,b) => new Date(a.tanggal) - new Date(b.tanggal));
+  const totSpp = all.filter(x => x.jenis === 'spp').reduce((a,b) => a + parseFloat(b.jumlah), 0);
+  const totTag = all.filter(x => x.jenis !== 'spp').reduce((a,b) => a + parseFloat(b.jumlah), 0);
+  document.getElementById('historySummary').innerHTML = `
+    <div class="card"><div class="label">Total SPP</div><div class="value">Rp ${fmtRp(totSpp)}</div></div>
+    <div class="card"><div class="label">Total Tagihan</div><div class="value">Rp ${fmtRp(totTag)}</div></div>
+    <div class="card"><div class="label">Total Semua</div><div class="value">Rp ${fmtRp(totSpp+totTag)}</div></div>`;
+  let h = '';
+  all.forEach(p => {
+    h += `<tr><td>${p.tanggal}</td><td>${p.jenis==='spp'?'SPP':'Tagihan'}</td><td>${p.seri||'-'}</td><td>Rp ${fmtRp(p.jumlah)}</td><td style="font-size:0.65rem">${p.keterangan||'-'}</td><td class="action-buttons"><button class="btn btn-danger btn-sm" onclick="hapusPembayaran(${p.id},'${p.jenis}')">Hapus</button></td></tr>`;
+  });
+  document.getElementById('historyBody').innerHTML = h || '<tr><td colspan="6" class="empty-state">Belum ada pembayaran</td></tr>';
+  document.getElementById('historyModal').style.display = 'flex';
+}
+function closeHistoryModal() { document.getElementById('historyModal').style.display = 'none'; }
+async function hapusPembayaran(id, jenis) {
+  if (!confirm('Hapus pembayaran ini?')) return;
+  await apiFetch(`/api/${jenis==='spp'?'spp':'tagihan'}/${id}`, { method:'DELETE' });
+  closeHistoryModal();
+  loadSPP(); loadTagihan(); loadDashboard();
+}
+
+// ─── RIWAYAT ───
+async function loadRiwayat() {
+  const tahun = document.getElementById('riwTahun').value;
+  const search = document.getElementById('riwSearch').value;
+  const kelasId = document.getElementById('riwKelas').value;
+  let url = `/api/riwayat?tahun=${tahun}`;
+  if (search) url += '&search=' + encodeURIComponent(search);
+  if (kelasId) url += '&kelas_id=' + kelasId;
+  const data = await apiFetch(url);
+  if (!data) return;
+  let h = '<table><thead><tr><th>Tanggal</th><th>NIS</th><th>Nama</th><th>Kelas</th><th>Jenis</th><th>Seri</th><th>Jumlah</th><th>Keterangan</th></tr></thead><tbody>';
+  let total = 0;
+  (data||[]).forEach(p => {
+    total += parseFloat(p.jumlah);
+    h += `<tr><td>${p.tanggal}</td><td>${p.nis}</td><td style="text-align:left">${p.nama}</td><td>${p.kelas_nama||'-'}</td><td>${p.jenis==='spp'?'<span class="badge badge-success">SPP</span>':'<span class="badge badge-warning">Tagihan</span>'}</td><td>${p.seri||'-'}</td><td style="font-weight:700;color:#1a7a5a;">Rp ${fmtRp(p.jumlah)}</td><td style="font-size:0.65rem">${p.keterangan||'-'}</td></tr>`;
+  });
+  h += `<tr class="total-row"><td colspan="6"><strong>TOTAL</strong></td><td><strong>Rp ${fmtRp(total)}</strong></td><td></td></tr></tbody></table>`;
+  document.getElementById('riwayatTable').innerHTML = h || '<div class="empty-state">Tidak ada data</div>';
+}
+async function exportRiwayatExcel() {
+  const tahun = document.getElementById('riwTahun').value;
+  const search = document.getElementById('riwSearch').value;
+  const kelasId = document.getElementById('riwKelas').value;
+  let url = `/api/riwayat?tahun=${tahun}`;
+  if (search) url += '&search=' + encodeURIComponent(search);
+  if (kelasId) url += '&kelas_id=' + kelasId;
+  const data = await apiFetch(url);
+  if (!data||!data.length) return alert('Tidak ada data');
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.map(p => ({
+    Tanggal: p.tanggal, NIS: p.nis, Nama: p.nama, Kelas: p.kelas_nama||'',
+    Jenis: p.jenis==='spp'?'SPP':'Tagihan', Seri: p.seri||'',
+    Jumlah: 'Rp ' + fmtRp(p.jumlah), Keterangan: p.keterangan||''
+  }))), 'Riwayat');
+  XLSX.writeFile(wb, `Riwayat_${tahun}.xlsx`);
+}
+
 // ─── MODE SELECTION ───
-const MODE_SPP_TABS = ['dashboard','spp','tagihan','siswa','kelas','pembukuan'];
+const MODE_SPP_TABS = ['dashboard','spp','tagihan','siswa','kelas','pembukuan','riwayat'];
 const MODE_TABUNG_TABS = ['dashboard','tabungan','nasabah','laporan','backup'];
 
 function showModeSelection() { document.getElementById('modeOverlay').classList.remove('hidden'); }
