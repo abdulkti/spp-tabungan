@@ -106,16 +106,42 @@
             .stat-grid { grid-template-columns: 1fr 1fr; }
             .members-grid { grid-template-columns: 1fr; }
         }
+        .mode-overlay { position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);backdrop-filter:blur(10px);z-index:2000;display:flex;justify-content:center;align-items:center; }
+        .mode-overlay.hidden { display:none; }
+        .mode-picker { display:flex;gap:28px;flex-wrap:wrap;justify-content:center; }
+        .mode-card { background:#fff;border-radius:28px;padding:40px 48px;cursor:pointer;text-align:center;transition:all 0.3s;box-shadow:0 10px 40px rgba(0,0,0,0.1);width:220px; }
+        .mode-card:hover { transform:translateY(-8px);box-shadow:0 20px 50px rgba(0,0,0,0.15); }
+        .mode-card .icon { font-size:3.5rem;margin-bottom:12px; }
+        .mode-card h2 { font-size:1.4rem;font-weight:800;color:#1e4a2f; }
+        .mode-card p { font-size:0.75rem;color:#6b8c5c;margin-top:6px;line-height:1.4; }
+        .mode-card.spp { border:3px solid #2c5e3f; }
+        .mode-card.tabungan { border:3px solid #6366f1; }
+        .mode-switch { font-size:0.72rem;font-weight:600;opacity:0.85;cursor:pointer;padding:6px 14px;border-radius:30px;border:1px solid rgba(255,255,255,0.25);transition:all 0.2s; }
+        .mode-switch:hover { opacity:1;background:rgba(255,255,255,0.08); }
     </style>
 </head>
 <body>
 <div class="container">
     <div class="header">
         <div><h1>RA ALJAWAHIR</h1><p>Sistem Pembukuan SPP & Tabungan Terpadu</p></div>
-        <div class="header-right"><span class="user-info" id="userInfo"></span><button class="btn-logout" onclick="logout()">Keluar</button></div>
+        <div class="header-right"><span class="mode-switch" id="modeLabel" onclick="showModeSelection()"></span><span class="user-info" id="userInfo"></span><button class="btn-logout" onclick="logout()">Keluar</button></div>
+    </div>
+    <div id="modeOverlay" class="mode-overlay">
+        <div class="mode-picker">
+            <div class="mode-card spp" onclick="selectMode('spp')">
+                <div class="icon">📚</div>
+                <h2>SPP</h2>
+                <p>Kelola pembayaran SPP,<br>tagihan awal, siswa & kelas</p>
+            </div>
+            <div class="mode-card tabungan" onclick="selectMode('tabungan')">
+                <div class="icon">🐷</div>
+                <h2>Tabungan</h2>
+                <p>Kelola tabungan siswa & guru,<br>setor tarik & laporan</p>
+            </div>
+        </div>
     </div>
     <div class="nav-tabs">
-        <button class="tab active" data-tab="dashboard"><i class="fas fa-chart-line"></i> Dashboard</button>
+        <button class="tab" data-tab="dashboard"><i class="fas fa-chart-line"></i> Dashboard</button>
         <button class="tab" data-tab="spp"><i class="fas fa-money-bill-wave"></i> SPP</button>
         <button class="tab" data-tab="tagihan"><i class="fas fa-file-invoice"></i> Tagihan Awal</button>
         <button class="tab" data-tab="siswa"><i class="fas fa-user-graduate"></i> Siswa</button>
@@ -128,7 +154,7 @@
         <button class="tab" data-tab="backup"><i class="fas fa-database"></i> Backup</button>
     </div>
 
-    <div id="tab-dashboard" class="tab-content active"><div class="stat-grid" id="dashStats"></div><div class="stat-grid" id="dashStats2"></div><div class="filter-card"><div class="filter-group"><label>Tahun Ajaran</label><select id="dashTahun" onchange="loadDashboard()"></select></div></div><div class="table-wrapper" id="dashTable"></div></div>
+    <div id="tab-dashboard" class="tab-content"><div class="stat-grid" id="dashStats"></div><div class="stat-grid" id="dashStats2"></div><div class="filter-card"><div class="filter-group"><label>Tahun Ajaran</label><select id="dashTahun" onchange="loadDashboard()"></select></div></div><div class="table-wrapper" id="dashTable"></div></div>
 
     <div id="tab-spp" class="tab-content">
         <div class="filter-card">
@@ -287,6 +313,7 @@
 const BULAN = ['Juli','Agustus','September','Oktober','November','Desember','Januari','Februari','Maret','April','Mei','Juni'];
 let siswaList = [], kelasList = [], nasabahList = [];
 let tabungPage = 1;
+let currentMode = null;
 
 function getToken() { return localStorage.getItem('token'); }
 function fmtRp(n) { return (n||0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
@@ -692,6 +719,32 @@ async function restoreData() {
     alert('Restore berhasil!'); loadDashboard();
 }
 
+// ─── MODE SELECTION ───
+const MODE_SPP_TABS = ['dashboard','spp','tagihan','siswa','kelas','pembukuan'];
+const MODE_TABUNG_TABS = ['dashboard','tabungan','nasabah','laporan','backup'];
+
+function showModeSelection() { document.getElementById('modeOverlay').classList.remove('hidden'); }
+
+function selectMode(mode) {
+    currentMode = mode;
+    document.getElementById('modeOverlay').classList.add('hidden');
+    document.getElementById('modeLabel').textContent = mode === 'spp' ? '📚 SPP' : '🐷 Tabungan';
+    document.querySelectorAll('.tab').forEach(btn => {
+        const t = btn.getAttribute('data-tab');
+        if (btn.disabled) { btn.style.display = 'none'; return; }
+        if (mode === 'spp') btn.style.display = MODE_TABUNG_TABS.includes(t) && t !== 'dashboard' ? 'none' : '';
+        else btn.style.display = MODE_SPP_TABS.includes(t) && t !== 'dashboard' ? 'none' : '';
+    });
+    const curTab = document.querySelector('.tab.active');
+    if (curTab) {
+        const ct = curTab.getAttribute('data-tab');
+        const hidden = mode === 'spp' ? MODE_TABUNG_TABS.includes(ct) && ct !== 'dashboard' : MODE_SPP_TABS.includes(ct) && ct !== 'dashboard';
+        if (hidden) showTab('dashboard'); else loadDashboard();
+    } else {
+        showTab('dashboard');
+    }
+}
+
 // ─── INIT ───
 async function init() {
     if (!getToken()) { window.location.href = '/login.html'; return; }
@@ -701,7 +754,7 @@ async function init() {
     document.getElementById('sppTanggalDefault').value = new Date().getFullYear() + '-07-15';
     document.getElementById('tabungTanggal').value = new Date().toISOString().slice(0,10);
     await loadKelas();
-    loadDashboard();
+    showModeSelection();
 }
 init();
 </script>
