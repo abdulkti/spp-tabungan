@@ -1,6 +1,5 @@
 const express = require('express');
 const cors = require('cors');
-const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const path = require('path');
@@ -12,12 +11,75 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '10mb' }));
 
 const JWT_SECRET = process.env.JWT_SECRET || 'spp-tabungan-secret-' + Date.now();
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
-});
 
-pool.on('error', (err) => console.error('Pool error:', err.message));
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;
+const USE_REST = !!(SUPABASE_URL && SUPABASE_KEY);
+
+if (USE_REST) {
+  console.log('Using Supabase REST API');
+} else if (process.env.DATABASE_URL) {
+  console.log('Using pg direct connection');
+  const { Pool } = require('pg');
+  const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false },
+    connectionTimeoutMillis: 10000,
+  });
+  pool.on('error', (err) => console.error('Pool error:', err.message));
+  global.__pool = pool;
+} else {
+  console.error('No database configuration found');
+}
+
+function escapeLiteral(val) {
+  if (val === null || val === undefined) return 'NULL';
+  if (typeof val === 'number') return String(val);
+  if (typeof val === 'boolean') return val ? 'TRUE' : 'FALSE';
+  const s = String(val).replace(/'/g, "''");
+  return `'${s}'`;
+}
+
+async function query(text, params = []) {
+  if (USE_REST) {
+    let sql = text;
+    for (let i = 0; i < params.length; i++) {
+      sql = sql.replace(`$${i + 1}`, escapeLiteral(params[i]));
+    }
+    const body = JSON.stringify({ sql_text: sql });
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/exec_query`, {
+      method: 'POST',
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+      body,
+    });
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      if (errBody.message && errBody.message.includes('syntax error') || errBody.code === '42P01') {
+        throw new Error(errBody.message);
+      }
+      const res2 = await fetch(`${SUPABASE_URL}/rest/v1/rpc/exec_dml`, {
+        method: 'POST',
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+        body,
+      });
+      if (!res2.ok) {
+        const err2 = await res2.json().catch(() => ({}));
+        throw new Error(err2.message || `Query failed: ${res2.status}`);
+      }
+      return { rows: [] };
+    }
+    const data = await res.json();
+    return { rows: data || [] };
+  }
+  const pool = global.__pool;
+  const client = await pool.connect();
+  try {
+    const result = await client.query(text, params);
+    return result;
+  } finally {
+    client.release();
+  }
+}
 
 function fmtRp(n) { return (n || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
 function parseRp(s) { return parseInt(String(s||'0').replace(/\./g,'').replace(/[^0-9]/g,'')) || 0; }
@@ -42,21 +104,9 @@ function errorHandler(res, err, msg = 'Terjadi kesalahan') {
   res.status(500).json({ error: msg + ': ' + (err.message || err) });
 }
 
-async function query(text, params = []) {
-  const client = await pool.connect();
-  try {
-    const result = await client.query(text, params);
-    return result;
-  } finally {
-    client.release();
-  }
-}
-
-// ─── STATIC FILES ───
 const publicPath = path.join(__dirname, '..', 'public');
 app.use(express.static(publicPath));
 
-// ─── AUTH ───
 app.post('/api/login', async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -79,7 +129,6 @@ app.get('/api/me', authMiddleware, async (req, res) => {
   } catch (err) { errorHandler(res, err); }
 });
 
-// ─── DASHBOARD ───
 app.get('/api/dashboard', authMiddleware, async (req, res) => {
   try {
     const tahun = req.query.tahun || String(new Date().getFullYear());
@@ -113,7 +162,6 @@ app.get('/api/dashboard', authMiddleware, async (req, res) => {
   } catch (err) { errorHandler(res, err, 'Dashboard gagal'); }
 });
 
-// ─── KELAS ───
 app.get('/api/kelas', authMiddleware, async (req, res) => {
   try {
     const r = await query("SELECT k.id,k.nama,COUNT(s.id) as jumlah_siswa FROM kelas k LEFT JOIN siswa s ON s.kelas_id=k.id GROUP BY k.id,k.nama ORDER BY k.nama");
@@ -142,7 +190,6 @@ app.delete('/api/kelas', authMiddleware, async (req, res) => {
   } catch (err) { errorHandler(res, err); }
 });
 
-// ─── SISWA ───
 app.get('/api/siswa', authMiddleware, async (req, res) => {
   try {
     const { search, kelas_id, tahun } = req.query;
@@ -186,7 +233,6 @@ app.delete('/api/siswa', authMiddleware, async (req, res) => {
   } catch (err) { errorHandler(res, err); }
 });
 
-// ─── SPP ───
 app.get('/api/spp', authMiddleware, async (req, res) => {
   try {
     const { tahun, bulan, kelas_id, search } = req.query;
@@ -229,7 +275,6 @@ app.post('/api/spp/cancel', authMiddleware, async (req, res) => {
   } catch (err) { errorHandler(res, err); }
 });
 
-// ─── TAGIHAN ───
 app.get('/api/tagihan', authMiddleware, async (req, res) => {
   try {
     const { tahun, kelas_id, search } = req.query;
@@ -268,7 +313,6 @@ app.post('/api/tagihan', authMiddleware, async (req, res) => {
   } catch (err) { errorHandler(res, err); }
 });
 
-// ─── PEMBUKUAN ───
 app.get('/api/pembukuan', authMiddleware, async (req, res) => {
   try {
     const { tahun, kelas_id } = req.query;
@@ -295,7 +339,6 @@ app.get('/api/pembukuan', authMiddleware, async (req, res) => {
   } catch (err) { errorHandler(res, err); }
 });
 
-// ─── NASABAH ───
 app.get('/api/nasabah', authMiddleware, async (req, res) => {
   try {
     const { search, role, kelas } = req.query;
@@ -343,7 +386,6 @@ app.delete('/api/nasabah', authMiddleware, async (req, res) => {
   } catch (err) { errorHandler(res, err); }
 });
 
-// ─── TABUNGAN ───
 app.get('/api/tabungan', authMiddleware, async (req, res) => {
   try {
     const nasabahId = req.query.nasabah_id || '';
@@ -378,7 +420,6 @@ app.post('/api/tabungan', authMiddleware, async (req, res) => {
   } catch (err) { errorHandler(res, err); }
 });
 
-// ─── LAPORAN ───
 app.get('/api/laporan', authMiddleware, async (req, res) => {
   try {
     const { role, kelas } = req.query;
@@ -392,7 +433,6 @@ app.get('/api/laporan', authMiddleware, async (req, res) => {
   } catch (err) { errorHandler(res, err); }
 });
 
-// ─── BACKUP ───
 app.get('/api/backup', authMiddleware, async (req, res) => {
   try {
     const tables = ['users','kelas','siswa','spp_payments','tagihan_payments','nasabah','tabungan_transaksi'];
@@ -427,7 +467,6 @@ app.post('/api/restore', authMiddleware, async (req, res) => {
   } catch (err) { await query('ROLLBACK').catch(()=>{}); errorHandler(res, err, 'Restore gagal'); }
 });
 
-// ─── FALLBACK ───
 app.get('*', (req, res) => {
   const filePath = path.join(publicPath, req.path === '/' ? 'index.html' : req.path);
   if (fs.existsSync(filePath) && !fs.statSync(filePath).isDirectory()) {

@@ -80,3 +80,21 @@ WHERE NOT EXISTS (SELECT 1 FROM users WHERE username = 'admin');
 -- Seed default kelas
 INSERT INTO kelas (nama) VALUES ('A Sakura'), ('B Melati'), ('A Mawar'), ('B Anggrek')
 ON CONFLICT (nama) DO NOTHING;
+
+-- RPC functions for REST API access (used by Vercel IPv4)
+CREATE OR REPLACE FUNCTION exec_query(sql_text TEXT)
+RETURNS JSON LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE r JSON;
+BEGIN
+  EXECUTE format('SELECT json_agg(row_to_json(t)) FROM (%s) t', sql_text) INTO r;
+  RETURN r;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION exec_dml(sql_text TEXT)
+RETURNS JSON LANGUAGE plpgsql SECURITY DEFINER AS $$
+BEGIN
+  EXECUTE sql_text;
+  RETURN '[]'::JSON;
+END;
+$$;
